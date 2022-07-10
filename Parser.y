@@ -1,5 +1,5 @@
 {
-module Parser (PDef(..), PExpr(..), Id) where
+module Parser (PDef(..), PExpr(..), Id, parse) where
 
 import Lexer
 }
