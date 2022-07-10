@@ -5,6 +5,7 @@ import Control.Monad.State
 import qualified Data.Map.Lazy as Map
 import qualified Data.Partition as P
 import Debug.Trace
+import Control.Lens
 
 data BaseType = TInt
     deriving (Show, Eq, Ord)
@@ -75,23 +76,15 @@ typeExpr' (PNum _) = return $ TBase TInt
 typeExpr' (PApp l r) = do
     a <- typeExpr' l
     b <- typeExpr' r
-    s <- get
     c <- TVar <$> newVar
-    s' <- get
-    let p' = unify a (TFun b c) (snd s)
-    let s'' = (fst s', p') 
-    put s''
+    _2 %= unify a (TFun b c)
     return c
-typeExpr' (PVar v) = do TVar <$> newVar
+typeExpr' (PVar v) = TVar <$> newVar
 
 newVar :: State TypeState' TypeVar
 newVar = do
-    s <- get
-    let lv = fst s
-    let a = succ lv
-    let s' = (a, snd s)
-    put s'
-    return a
+    _1 %= succ
+    gets fst
 
 runTypeExpr :: PExpr -> Type
 runTypeExpr e = fst $ typeExpr e (TV "", mempty)
