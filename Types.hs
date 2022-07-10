@@ -57,41 +57,24 @@ instance Ord TypeVar where
 
 type LastVar = TypeVar
 type TypeEnv = Map.Map Id Type
-type TypeState = (LastVar, TypeEnv)
 
 type TypeSets = P.Partition Type
-type TypeState' = (LastVar, TypeSets)
+type TypeState = (LastVar, TypeSets)
 
-typeExpr :: PExpr -> TypeState -> (Type, TypeState)
-typeExpr (PNum _) (lv, env) = (TBase TInt, (lv, env))
-typeExpr (PApp l r) (lv, env) = (TFun a b, (lv'', env'')) where
-    (a, (lv', env')) = typeExpr l (lv, env)
-    (b, (lv'', env'')) = typeExpr r (lv', env')
-typeExpr (PVar v) (lv, env) = (TVar a, (a, env')) where
-    a = succ lv
-    env' = Map.insert v (TVar a) env
-
-typeExpr' :: PExpr -> State TypeState' Type
-typeExpr' (PNum _) = return $ TBase TInt
-typeExpr' (PApp l r) = do
-    a <- typeExpr' l
-    b <- typeExpr' r
+typeExpr :: PExpr -> State TypeState Type
+typeExpr (PNum _) = return $ TBase TInt
+typeExpr (PApp l r) = do
+    a <- typeExpr l
+    b <- typeExpr r
     c <- TVar <$> newVar
     _2 %= unify a (TFun b c)
     return c
-typeExpr' (PVar v) = TVar <$> newVar
+typeExpr (PVar v) = TVar <$> newVar
 
-newVar :: State TypeState' TypeVar
+newVar :: State TypeState TypeVar
 newVar = do
     _1 %= succ
     gets fst
-
-runTypeExpr :: PExpr -> Type
-runTypeExpr e = fst $ typeExpr e (TV "", mempty)
-
-exploreTypeExpr :: PExpr -> (Type, TypeState)
-exploreTypeExpr e = typeExpr e (TV "", mempty)
-
 
 -- TODO: use Either (Type, Type) (P.Partition Type)
 unify :: Type -> Type -> P.Partition Type -> P.Partition Type
