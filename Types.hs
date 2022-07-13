@@ -1,3 +1,4 @@
+{-# LANGUAGE TemplateHaskell #-}
 module Types where
 
 import Parser
@@ -5,6 +6,7 @@ import Control.Monad.State
 import Control.Monad.Except
 import qualified Data.Map.Lazy as Map
 import qualified Data.Partition as P
+import qualified Data.Set as Set
 import Debug.Trace
 import Control.Lens
 
@@ -60,8 +62,10 @@ type LastVar = TypeVar
 type TypeEnv = Map.Map Id Type
 
 type TypeSets = P.Partition Type
-type TypeState = (LastVar, TypeSets)
+data TypeState = TypeState { _lastVar :: LastVar, _typeSets :: TypeSets } deriving Show
 type Error = (Type, Type)
+
+makeLenses ''TypeState
 
 typeExpr :: PExpr -> ExceptT Error (State TypeState) Type
 typeExpr (PNum _) = return $ TBase TInt
@@ -75,8 +79,8 @@ typeExpr (PVar v) = TVar <$> lift newVar
 
 newVar :: State TypeState TypeVar
 newVar = do
-    _1 %= succ
-    gets fst
+    lastVar %= succ
+    gets _lastVar
 
 unify :: Type -> Type -> ExceptT Error (State TypeState) ()
 unify (TBase a) (TBase b)
@@ -86,12 +90,13 @@ unify (TFun a b) (TFun c d) = do
     unify a c
     unify b d
 unify a@(TVar _) b = do
-    p <- gets snd
+    p <- gets _typeSets
     let a' = P.rep p a
-    if a == a' then _2 .= P.joinElems a b p
+    if a == a' then typeSets .= P.joinElems a b p
                else unify a' b
 unify a b@(TVar _) = unify b a
 unify a b = throwError (a, b)
 
 runTypeExpr :: PExpr -> (Either Error Type, TypeState)
-runTypeExpr expr = runState (runExceptT $ typeExpr expr) (TV "", P.empty)
+runTypeExpr expr = runState (runExceptT $ typeExpr expr) initState where
+    initState = TypeState (TV "") P.empty
