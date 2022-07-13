@@ -2,6 +2,7 @@ module Types where
 
 import Parser
 import Control.Monad.State
+import Control.Monad.Except
 import qualified Data.Map.Lazy as Map
 import qualified Data.Partition as P
 import Debug.Trace
@@ -60,35 +61,37 @@ type TypeEnv = Map.Map Id Type
 
 type TypeSets = P.Partition Type
 type TypeState = (LastVar, TypeSets)
+type Error = (Type, Type)
 
-typeExpr :: PExpr -> State TypeState Type
+typeExpr :: PExpr -> ExceptT Error (State TypeState) Type
 typeExpr (PNum _) = return $ TBase TInt
 typeExpr (PApp l r) = do
     a <- typeExpr l
     b <- typeExpr r
-    c <- TVar <$> newVar
-    _2 %= unify a (TFun b c)
+    c <- TVar <$> lift newVar
+    unify a (TFun b c)
     return c
-typeExpr (PVar v) = TVar <$> newVar
+typeExpr (PVar v) = TVar <$> lift newVar
 
 newVar :: State TypeState TypeVar
 newVar = do
     _1 %= succ
     gets fst
 
--- TODO: use Either (Type, Type) (P.Partition Type)
-unify :: Type -> Type -> P.Partition Type -> P.Partition Type
-unify (TBase a) (TBase b) p
-  | a == b = p
-  | otherwise = error "A"
-unify (TFun a b) (TFun c d) p = do
-    let p' = unify a c p
-    unify b d p'
-unify a@(TVar _) b p = do
+unify :: Type -> Type -> ExceptT Error (State TypeState) ()
+unify (TBase a) (TBase b)
+  | a == b = return ()
+  | otherwise = throwError (TBase a, TBase b)
+unify (TFun a b) (TFun c d) = do
+    unify a c
+    unify b d
+unify a@(TVar _) b = do
+    p <- gets snd
     let a' = P.rep p a
-    if a == a' then P.joinElems a b p
-               else unify a' b p
-unify a b@(TVar _) p = unify b a p
-unify _ _ _ = error "B"
+    if a == a' then _2 .= P.joinElems a b p
+               else unify a' b
+unify a b@(TVar _) = unify b a
+unify a b = throwError (a, b)
 
-
+runTypeExpr :: PExpr -> (Either Error Type, TypeState)
+runTypeExpr expr = runState (runExceptT $ typeExpr expr) (TV "", P.empty)
