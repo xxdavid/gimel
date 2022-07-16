@@ -3,6 +3,7 @@
 module Types where
 
 import Control.Lens
+import Control.Monad
 import Control.Monad.Except
 import Control.Monad.State
 import qualified Data.Map.Lazy as Map
@@ -63,11 +64,12 @@ instance Ord TypeVar where
 
 type LastVar = TypeVar
 
-type TypeEnv = Map.Map Id Type
-
 type TypeSets = P.Partition Type
 
-data TypeState = TypeState {_lastVar :: LastVar, _typeSets :: TypeSets} deriving (Show)
+type FunMap = Map.Map Id TypeVar
+
+data TypeState = TypeState {_lastVar :: LastVar, _typeSets :: TypeSets, _funMap :: FunMap}
+  deriving (Show)
 
 type Error = (Type, Type)
 
@@ -105,16 +107,23 @@ unify a b@(TVar _) = unify b a
 unify a b = throwError (a, b)
 
 runTypeExpr :: PExpr -> (Either Error Type, TypeState)
-runTypeExpr expr = runState (runExceptT $ typeExpr expr) initState
+runTypeExpr expr = runState (prepareState >> runExceptT (typeExpr expr)) initState
   where
-    initState = TypeState (TV "") P.empty
+    initState = TypeState (TV "") P.empty Map.empty
 
--- predefinedTypes :: [(Id, Type)]
--- predefinedTypes = [
--- ("+", TFun (TBase TInt) (TFun (TBase TInt) (TBase TInt))),
--- ("-", TFun (TBase TInt) (TFun (TBase TInt) (TBase TInt))),
--- ("*", TFun (TBase TInt) (TFun (TBase TInt) (TBase TInt))),
--- ("/", TFun (TBase TInt) (TFun (TBase TInt) (TBase TInt)))
--- ]
+predefinedTypes :: [(Id, Type)]
+predefinedTypes =
+  [ ("+", TFun (TBase TInt) (TFun (TBase TInt) (TBase TInt))),
+    ("-", TFun (TBase TInt) (TFun (TBase TInt) (TBase TInt))),
+    ("*", TFun (TBase TInt) (TFun (TBase TInt) (TBase TInt))),
+    ("/", TFun (TBase TInt) (TFun (TBase TInt) (TBase TInt)))
+  ]
 
--- initialTypeSets = P.fromSets $ map (\(f, t) -> Set.fromList [TVar (TV f), t]) predefinedTypes
+prepareState :: State TypeState ()
+prepareState = mapM_ addFun predefinedTypes
+  where
+    addFun :: (Id, Type) -> State TypeState ()
+    addFun (f, t) = do
+      v <- newVar
+      funMap %= Map.insert f v
+      typeSets %= P.joinElems (TVar v) t
