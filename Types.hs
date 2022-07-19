@@ -86,10 +86,9 @@ typeExpr (PApp l r) = do
   return c
 typeExpr (PVar v) = do
   fm <- use bindings
-  let ex = Map.lookup v fm
-  if isJust ex
-    then pure $ TVar $ fromJust ex
-    else TVar <$> lift newVar
+  case Map.lookup v fm of
+    Just tv -> pure $ TVar tv
+    Nothing -> TVar <$> lift newVar
 
 newVar :: State TypeState TypeVar
 newVar = do
