@@ -89,6 +89,14 @@ typeExpr (PVar v) = do
   case Map.lookup v fm of
     Just tv -> pure $ TVar tv
     Nothing -> TVar <$> lift newVar
+typeExpr (PAbs x body) = do
+    origBinds <- use bindings
+    tv <- lift newVar
+    bindings %= Map.insert x tv
+    bodyType <- typeExpr body
+    bindings .= origBinds
+    return $ TFun (TVar tv) bodyType
+
 
 newVar :: State TypeState TypeVar
 newVar = do
