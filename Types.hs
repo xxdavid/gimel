@@ -121,24 +121,43 @@ unify a b@(TVar _) = unify b a
 unify a b = throwError $ MatchError (a, b)
 
 runTypeExpr :: PExpr -> (Either Error Type, TypeState)
-runTypeExpr expr = runState (prepareState >> runExceptT (typeExpr expr)) initState
+runTypeExpr expr = runState (loadPredefined >> runExceptT (typeExpr expr)) initState
+
+initState = TypeState (TV "") P.empty Map.empty
+
+loadPredefined :: State TypeState ()
+loadPredefined = mapM_ addFun predefinedTypes
   where
-    initState = TypeState (TV "") P.empty Map.empty
+    addFun :: (Id, Type) -> State TypeState ()
+    addFun (f, t) = do
+      v <- newVar
+      bindings %= Map.insert f v
+      typeSets %= P.joinElems (TVar v) t
 
-    prepareState :: State TypeState ()
-    prepareState = mapM_ addFun predefinedTypes
-      where
-        addFun :: (Id, Type) -> State TypeState ()
-        addFun (f, t) = do
-          v <- newVar
-          bindings %= Map.insert f v
-          typeSets %= P.joinElems (TVar v) t
+predefinedTypes :: [(Id, Type)]
+predefinedTypes =
+  [ ("+", TFun (TBase TInt) (TFun (TBase TInt) (TBase TInt))),
+    ("-", TFun (TBase TInt) (TFun (TBase TInt) (TBase TInt))),
+    ("*", TFun (TBase TInt) (TFun (TBase TInt) (TBase TInt))),
+    ("/", TFun (TBase TInt) (TFun (TBase TInt) (TBase TInt))),
+    ("succ", TFun (TBase TInt) (TBase TInt))
+  ]
 
-    predefinedTypes :: [(Id, Type)]
-    predefinedTypes =
-      [ ("+", TFun (TBase TInt) (TFun (TBase TInt) (TBase TInt))),
-        ("-", TFun (TBase TInt) (TFun (TBase TInt) (TBase TInt))),
-        ("*", TFun (TBase TInt) (TFun (TBase TInt) (TBase TInt))),
-        ("/", TFun (TBase TInt) (TFun (TBase TInt) (TBase TInt))),
-        ("succ", TFun (TBase TInt) (TBase TInt))
-      ]
+typeDefs :: [PDef] -> ExceptT Error (State TypeState) ()
+typeDefs defs = mapM_ typeFun defs
+    where
+        typeFun :: PDef -> ExceptT Error (State TypeState) ()
+        typeFun (PDef fn body) = do
+            t <- typeExpr body
+            return ()
+    
+runTypeDefs :: [PDef] -> (Either Error (), TypeState)
+runTypeDefs defs = runState (loadPredefined >> addDefBinds >> runExceptT (typeDefs defs)) initState
+    where
+        addDefBinds :: State TypeState ()
+        addDefBinds = mapM_ addFun defs
+          where
+            addFun :: PDef -> State TypeState ()
+            addFun (PDef fn _) = do
+              v <- newVar
+              bindings %= Map.insert fn v

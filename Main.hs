@@ -2,6 +2,7 @@ module Main where
 
 import Lexer
 import Parser
+import Types
 
 deleteLast [h] = []
 deleteLast (x:xs) = x : deleteLast xs
@@ -12,3 +13,5 @@ main = do
     print tokens
     let ast = parse tokens
     print ast
+    let typeRes = runTypeDefs ast
+    print typeRes
