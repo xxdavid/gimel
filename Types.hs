@@ -85,7 +85,7 @@ typeExpr (PApp l r) = do
   unify a (TFun b c)
   return c
 typeExpr (PVar v) = do
-  fm <- gets _bindings
+  fm <- use bindings
   let ex = Map.lookup v fm
   if isJust ex
     then pure $ TVar $ fromJust ex
@@ -94,7 +94,7 @@ typeExpr (PVar v) = do
 newVar :: State TypeState TypeVar
 newVar = do
   lastVar %= succ
-  gets _lastVar
+  use lastVar
 
 unify :: Type -> Type -> ExceptT Error (State TypeState) ()
 unify (TBase a) (TBase b)
@@ -104,7 +104,7 @@ unify (TFun a b) (TFun c d) = do
   unify a c
   unify b d
 unify a@(TVar _) b = do
-  p <- gets _typeSets
+  p <- use typeSets
   let a' = P.rep p a
   if a == a'
     then typeSets .= P.joinElems a b p
