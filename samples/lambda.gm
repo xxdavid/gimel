@@ -1,0 +1,3 @@
+addOne = (\x -> x + 1)
+makeAdder = (\x -> (\y -> x + y))
+multiple = (\x y -> x + y)
