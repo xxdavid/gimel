@@ -72,7 +72,8 @@ type Bindings = Map.Map Id TypeVar
 data TypeState = TypeState {_lastVar :: LastVar, _typeSets :: TypeSets, _bindings :: Bindings}
   deriving (Show)
 
-type Error = (Type, Type)
+data Error = MatchError (Type, Type) | UndefinedVariableError Id
+    deriving Show
 
 makeLenses ''TypeState
 
@@ -88,7 +89,7 @@ typeExpr (PVar v) = do
   fm <- use bindings
   case Map.lookup v fm of
     Just tv -> pure $ TVar tv
-    Nothing -> TVar <$> lift newVar
+    Nothing -> throwError $ UndefinedVariableError v
 typeExpr (PAbs x body) = do
     origBinds <- use bindings
     tv <- lift newVar
@@ -106,7 +107,7 @@ newVar = do
 unify :: Type -> Type -> ExceptT Error (State TypeState) ()
 unify (TBase a) (TBase b)
   | a == b = return ()
-  | otherwise = throwError (TBase a, TBase b)
+  | otherwise = throwError $ MatchError (TBase a, TBase b)
 unify (TFun a b) (TFun c d) = do
   unify a c
   unify b d
@@ -117,7 +118,7 @@ unify a@(TVar _) b = do
     then typeSets .= P.joinElems a b p
     else unify a' b
 unify a b@(TVar _) = unify b a
-unify a b = throwError (a, b)
+unify a b = throwError $ MatchError (a, b)
 
 runTypeExpr :: PExpr -> (Either Error Type, TypeState)
 runTypeExpr expr = runState (prepareState >> runExceptT (typeExpr expr)) initState
