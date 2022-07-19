@@ -124,20 +124,20 @@ runTypeExpr expr = runState (prepareState >> runExceptT (typeExpr expr)) initSta
   where
     initState = TypeState (TV "") P.empty Map.empty
 
-predefinedTypes :: [(Id, Type)]
-predefinedTypes =
-  [ ("+", TFun (TBase TInt) (TFun (TBase TInt) (TBase TInt))),
-    ("-", TFun (TBase TInt) (TFun (TBase TInt) (TBase TInt))),
-    ("*", TFun (TBase TInt) (TFun (TBase TInt) (TBase TInt))),
-    ("/", TFun (TBase TInt) (TFun (TBase TInt) (TBase TInt))),
-    ("succ", TFun (TBase TInt) (TBase TInt))
-  ]
+    prepareState :: State TypeState ()
+    prepareState = mapM_ addFun predefinedTypes
+      where
+        addFun :: (Id, Type) -> State TypeState ()
+        addFun (f, t) = do
+          v <- newVar
+          bindings %= Map.insert f v
+          typeSets %= P.joinElems (TVar v) t
 
-prepareState :: State TypeState ()
-prepareState = mapM_ addFun predefinedTypes
-  where
-    addFun :: (Id, Type) -> State TypeState ()
-    addFun (f, t) = do
-      v <- newVar
-      bindings %= Map.insert f v
-      typeSets %= P.joinElems (TVar v) t
+    predefinedTypes :: [(Id, Type)]
+    predefinedTypes =
+      [ ("+", TFun (TBase TInt) (TFun (TBase TInt) (TBase TInt))),
+        ("-", TFun (TBase TInt) (TFun (TBase TInt) (TBase TInt))),
+        ("*", TFun (TBase TInt) (TFun (TBase TInt) (TBase TInt))),
+        ("/", TFun (TBase TInt) (TFun (TBase TInt) (TBase TInt))),
+        ("succ", TFun (TBase TInt) (TBase TInt))
+      ]
