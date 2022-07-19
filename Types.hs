@@ -7,6 +7,7 @@ import Control.Monad
 import Control.Monad.Except
 import Control.Monad.State
 import qualified Data.Map.Lazy as Map
+import Data.Maybe
 import qualified Data.Partition as P
 import qualified Data.Set as Set
 import Debug.Trace
@@ -66,9 +67,9 @@ type LastVar = TypeVar
 
 type TypeSets = P.Partition Type
 
-type FunMap = Map.Map Id TypeVar
+type Bindings = Map.Map Id TypeVar
 
-data TypeState = TypeState {_lastVar :: LastVar, _typeSets :: TypeSets, _funMap :: FunMap}
+data TypeState = TypeState {_lastVar :: LastVar, _typeSets :: TypeSets, _bindings :: Bindings}
   deriving (Show)
 
 type Error = (Type, Type)
@@ -83,7 +84,12 @@ typeExpr (PApp l r) = do
   c <- TVar <$> lift newVar
   unify a (TFun b c)
   return c
-typeExpr (PVar v) = TVar <$> lift newVar
+typeExpr (PVar v) = do
+  fm <- gets _bindings
+  let ex = Map.lookup v fm
+  if isJust ex
+    then pure $ TVar $ fromJust ex
+    else TVar <$> lift newVar
 
 newVar :: State TypeState TypeVar
 newVar = do
@@ -116,7 +122,8 @@ predefinedTypes =
   [ ("+", TFun (TBase TInt) (TFun (TBase TInt) (TBase TInt))),
     ("-", TFun (TBase TInt) (TFun (TBase TInt) (TBase TInt))),
     ("*", TFun (TBase TInt) (TFun (TBase TInt) (TBase TInt))),
-    ("/", TFun (TBase TInt) (TFun (TBase TInt) (TBase TInt)))
+    ("/", TFun (TBase TInt) (TFun (TBase TInt) (TBase TInt))),
+    ("succ", TFun (TBase TInt) (TBase TInt))
   ]
 
 prepareState :: State TypeState ()
@@ -125,5 +132,5 @@ prepareState = mapM_ addFun predefinedTypes
     addFun :: (Id, Type) -> State TypeState ()
     addFun (f, t) = do
       v <- newVar
-      funMap %= Map.insert f v
+      bindings %= Map.insert f v
       typeSets %= P.joinElems (TVar v) t
