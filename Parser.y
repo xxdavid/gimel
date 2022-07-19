@@ -37,7 +37,7 @@ Defs_   : Def                           { [$1] }
         | Defs_ nl Def                  { $3 : $1 }
 
 Def     :: { PDef }
-Def     : id Params '=' TopExpr         { PDef $1 $2 $4 }
+Def     : id Params '=' TopExpr         { PDef $1 (createAbs $2 $4) }
 
 Params  :: { [Id] }
 Params  : Params_                       { reverse $1 }
@@ -72,7 +72,7 @@ parseError _ = error "Parse error"
 type Id = String
 
 data PDef
-    = PDef Id [Id] PExpr
+    = PDef Id PExpr
     deriving (Eq, Show)
 
 data PExpr
