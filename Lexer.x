@@ -13,8 +13,10 @@ tokens :-
     \-                      { \s -> TMinus }
     \*                      { \s -> TStar }
     \/                      { \s -> TSlash }
+    \\                      { \s -> TBackslash }
     \(                      { \s -> TLParen }
     \)                      { \s -> TRParen }
+    \->                      { \s -> TArrow }
     $alpha+                 { \s -> TId s }
     $digit+                 { \s -> TNum (read s) }
     \n+                     { \s -> TNewLine }
@@ -29,9 +31,11 @@ data Token
     | TMinus
     | TStar
     | TSlash
+    | TBackslash
     | TAssign
     | TLParen
     | TRParen
+    | TArrow
     | TNewLine
     deriving (Eq, Show)
 }

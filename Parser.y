@@ -16,8 +16,10 @@ import Lexer
     '-'           { TMinus }
     '*'           { TStar }
     '/'           { TSlash }
+    '\\'          { TBackslash }
     '('           { TLParen }
     ')'           { TRParen }
+    '->'          { TArrow }
     id            { TId $$ }
     num           { TNum $$ }
     nl            { TNewLine }
@@ -59,6 +61,8 @@ Base    :: { PExpr }
 Base    : num                           { PNum $1 }
         | id                            { PVar $1 }
         | '(' TopExpr ')'               { $2 }
+        | '(' '\\' Params '->' TopExpr ')' { createAbs $3 $5 }
+
 
 
 {
@@ -75,5 +79,11 @@ data PExpr
     = PNum Int
     | PApp PExpr PExpr
     | PVar Id
+    | PAbs Id PExpr
     deriving (Eq, Show)
+
+createAbs :: [Id] -> PExpr -> PExpr
+createAbs [] body = body
+createAbs (x:xs) body = PAbs x (createAbs xs body)
+
 }
