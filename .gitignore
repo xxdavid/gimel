@@ -1,5 +1,7 @@
 *.o
+*.dyn_o
 *.hi
+*.dyn_hi
 Lexer.hs
 Parser.hs
 Main
