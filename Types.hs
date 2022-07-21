@@ -73,7 +73,7 @@ data TypeState = TypeState {_lastVar :: LastVar, _typeSets :: TypeSets, _binding
   deriving (Show)
 
 data Error = MatchError (Type, Type) | UndefinedVariableError Id
-    deriving Show
+  deriving (Show)
 
 makeLenses ''TypeState
 
@@ -91,13 +91,12 @@ typeExpr (PVar v) = do
     Just tv -> pure $ TVar tv
     Nothing -> throwError $ UndefinedVariableError v
 typeExpr (PAbs x body) = do
-    origBinds <- use bindings
-    tv <- lift newVar
-    bindings %= Map.insert x tv
-    bodyType <- typeExpr body
-    bindings .= origBinds
-    return $ TFun (TVar tv) bodyType
-
+  origBinds <- use bindings
+  tv <- lift newVar
+  bindings %= Map.insert x tv
+  bodyType <- typeExpr body
+  bindings .= origBinds
+  return $ TFun (TVar tv) bodyType
 
 newVar :: State TypeState TypeVar
 newVar = do
@@ -145,19 +144,19 @@ predefinedTypes =
 
 typeDefs :: [PDef] -> ExceptT Error (State TypeState) ()
 typeDefs defs = mapM_ typeFun defs
-    where
-        typeFun :: PDef -> ExceptT Error (State TypeState) ()
-        typeFun (PDef fn body) = do
-            t <- typeExpr body
-            return ()
-    
+  where
+    typeFun :: PDef -> ExceptT Error (State TypeState) ()
+    typeFun (PDef fn body) = do
+      t <- typeExpr body
+      return ()
+
 runTypeDefs :: [PDef] -> (Either Error (), TypeState)
 runTypeDefs defs = runState (loadPredefined >> addDefBinds >> runExceptT (typeDefs defs)) initState
-    where
-        addDefBinds :: State TypeState ()
-        addDefBinds = mapM_ addFun defs
-          where
-            addFun :: PDef -> State TypeState ()
-            addFun (PDef fn _) = do
-              v <- newVar
-              bindings %= Map.insert fn v
+  where
+    addDefBinds :: State TypeState ()
+    addDefBinds = mapM_ addFun defs
+      where
+        addFun :: PDef -> State TypeState ()
+        addFun (PDef fn _) = do
+          v <- newVar
+          bindings %= Map.insert fn v
