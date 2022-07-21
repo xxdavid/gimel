@@ -28,26 +28,38 @@ data Error = MatchError (Type, Type) | UndefinedVariableError Id
 
 makeLenses ''TypeState
 
-typeExpr :: PExpr -> ExceptT Error (State TypeState) Type
-typeExpr (PNum _ _) = return $ TBase TInt
-typeExpr (PApp _ l r) = do
-  a <- typeExpr l
-  b <- typeExpr r
+addType :: PExpr -> Type -> PExpr
+addType e t = addAnn (AType t) e
+
+getType :: PExpr -> Type
+getType = unpack . getAnn AKType
+  where
+    unpack (Just (AType t)) = t
+    unpack _ = error "Invalid annotation"
+
+typeExpr :: PExpr -> ExceptT Error (State TypeState) PExpr
+typeExpr e@(PNum _ _) = return $ addType e $ TBase TInt
+typeExpr (PApp as l r) = do
+  l' <- typeExpr l
+  let a = getType l'
+  r' <- typeExpr r
+  let b = getType r'
   c <- TVar <$> lift newVar
   unify a (TFun b c)
-  return c
-typeExpr (PVar _ v) = do
-  fm <- use bindings
-  case Map.lookup v fm of
-    Just tv -> pure $ TVar tv
+  return $ addType (PApp as l' r') c
+typeExpr e@(PVar _ v) = do
+  binds <- use bindings
+  case Map.lookup v binds of
+    Just tv -> return $ addType e $ TVar tv
     Nothing -> throwError $ UndefinedVariableError v
-typeExpr (PAbs _ x body) = do
+typeExpr (PAbs as x body) = do
   origBinds <- use bindings
   tv <- lift newVar
   bindings %= Map.insert x tv
-  bodyType <- typeExpr body
+  body' <- typeExpr body
+  let bodyType = getType body'
   bindings .= origBinds
-  return $ TFun (TVar tv) bodyType
+  return $ addType (PAbs as x body') $ TFun (TVar tv) bodyType
 
 newVar :: State TypeState TypeVar
 newVar = do
@@ -70,7 +82,7 @@ unify a@(TVar _) b = do
 unify a b@(TVar _) = unify b a
 unify a b = throwError $ MatchError (a, b)
 
-runTypeExpr :: PExpr -> (Either Error Type, TypeState)
+runTypeExpr :: PExpr -> (Either Error PExpr, TypeState)
 runTypeExpr expr = runState (loadPredefined >> runExceptT (typeExpr expr)) initState
 
 initState = TypeState (TV "") P.empty Map.empty
@@ -93,15 +105,15 @@ predefinedTypes =
     ("succ", TFun (TBase TInt) (TBase TInt))
   ]
 
-typeDefs :: [PDef] -> ExceptT Error (State TypeState) ()
-typeDefs = mapM_ typeFun
+typeDefs :: [PDef] -> ExceptT Error (State TypeState) [PDef]
+typeDefs = mapM typeFun
   where
-    typeFun :: PDef -> ExceptT Error (State TypeState) ()
+    typeFun :: PDef -> ExceptT Error (State TypeState) PDef
     typeFun (PDef fn body) = do
-      t <- typeExpr body
-      return ()
+      body' <- typeExpr body
+      return (PDef fn body')
 
-runTypeDefs :: [PDef] -> (Either Error (), TypeState)
+runTypeDefs :: [PDef] -> (Either Error [PDef], TypeState)
 runTypeDefs defs = runState (loadPredefined >> addDefBinds >> runExceptT (typeDefs defs)) initState
   where
     addDefBinds :: State TypeState ()
@@ -111,3 +123,17 @@ runTypeDefs defs = runState (loadPredefined >> addDefBinds >> runExceptT (typeDe
         addFun (PDef fn _) = do
           v <- newVar
           bindings %= Map.insert fn v
+
+printTypedExpr :: PExpr -> String
+printTypedExpr e = process e 0
+  where
+    process :: PExpr -> Int -> String
+    process e@(PNum _ n) i = ind i (show n ++ " :: " ++ showType e)
+    process e@(PVar _ x) i = ind i (x ++ " :: " ++ showType e)
+    process e@(PApp _ l r) i = ind i ("( :: " ++ showType e) ++ "\n" ++ process l (i + 1) ++ "\n" ++ process r (i + 1) ++ "\n" ++ ind i ")"
+    process e@(PAbs _ x b) i = ind i ("( :: " ++ showType e) ++ "\n" ++ ind (i + 1) ("\\" ++ x ++ " ->") ++ "\n" ++ process b (i + 1) ++ "\n" ++ ind i ")"
+
+    ind :: Int -> String -> String
+    ind i s = concat (replicate i "  ") ++ s
+
+    showType = show . getType

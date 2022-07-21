@@ -1,8 +1,9 @@
 {
-module Parser (PDef(..), PExpr(..), Id, parse) where
+module Parser (PDef(..), PExpr(..), Id, parse, Annotation(..), AnnKind(..), addAnn, getAnns, getAnn) where
 
 import Lexer
 import Types
+import Data.Foldable(find)
 }
 
 %name parse
@@ -77,6 +78,7 @@ data PDef
     deriving (Eq, Show)
 
 data Annotation = AType Type deriving (Eq, Show)
+data AnnKind = AKType
 type Ann = [Annotation]
 
 data PExpr
@@ -89,5 +91,24 @@ data PExpr
 createAbs :: [Id] -> PExpr -> PExpr
 createAbs [] body = body
 createAbs (x:xs) body = PAbs [] x (createAbs xs body)
+
+addAnn :: Annotation -> PExpr -> PExpr
+addAnn x (PNum xs a) = PNum (x:xs) a
+addAnn x (PApp xs a b) = PApp (x:xs) a b
+addAnn x (PVar xs a) = PVar (x:xs) a
+addAnn x (PAbs xs a b) = PAbs (x:xs) a b
+
+getAnns :: PExpr -> Ann
+getAnns (PNum xs _) = xs
+getAnns (PApp xs _ _) = xs
+getAnns (PVar xs _) = xs
+getAnns (PAbs xs _ _) = xs
+
+matchAnnKind :: AnnKind -> Annotation -> Bool
+matchAnnKind AKType (AType _) = True
+matchAnnKind _ _ = False
+
+getAnn :: AnnKind -> PExpr -> Maybe Annotation
+getAnn kind e = find (matchAnnKind kind) $ getAnns e
 
 }

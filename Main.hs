@@ -15,3 +15,8 @@ main = do
   print ast
   let typeRes = runTypeDefs ast
   print typeRes
+  case typeRes of
+    (Right t, _) -> mapM_ printDef t
+    _ -> pure ()
+  where
+    printDef (PDef fn body) = putStrLn $ fn ++ " = " ++ printTypedExpr body
