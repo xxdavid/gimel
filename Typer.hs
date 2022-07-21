@@ -134,8 +134,22 @@ printTypedExpr e = process e 0
     process :: PExpr -> Int -> String
     process e@(PNum _ n) i = ind i (show n ++ " :: " ++ showType e)
     process e@(PVar _ x) i = ind i (x ++ " :: " ++ showType e)
-    process e@(PApp _ l r) i = ind i ("( :: " ++ showType e) ++ "\n" ++ process l (i + 1) ++ "\n" ++ process r (i + 1) ++ "\n" ++ ind i ")"
-    process e@(PAbs _ x b) i = ind i ("( :: " ++ showType e) ++ "\n" ++ ind (i + 1) ("\\" ++ x ++ " ->") ++ "\n" ++ process b (i + 1) ++ "\n" ++ ind i ")"
+    process e@(PApp _ l r) i =
+      ind i ("( :: " ++ showType e)
+        ++ "\n"
+        ++ process l (i + 1)
+        ++ "\n"
+        ++ process r (i + 1)
+        ++ "\n"
+        ++ ind i ")"
+    process e@(PAbs _ x b) i =
+      ind i ("( :: " ++ showType e)
+        ++ "\n"
+        ++ ind (i + 1) ("\\" ++ x ++ " ->")
+        ++ "\n"
+        ++ process b (i + 1)
+        ++ "\n"
+        ++ ind i ")"
 
     ind :: Int -> String -> String
     ind i s = concat (replicate i "  ") ++ s
