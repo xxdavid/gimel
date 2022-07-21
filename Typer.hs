@@ -94,7 +94,7 @@ predefinedTypes =
   ]
 
 typeDefs :: [PDef] -> ExceptT Error (State TypeState) ()
-typeDefs defs = mapM_ typeFun defs
+typeDefs = mapM_ typeFun
   where
     typeFun :: PDef -> ExceptT Error (State TypeState) ()
     typeFun (PDef fn body) = do
