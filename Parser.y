@@ -2,6 +2,7 @@
 module Parser (PDef(..), PExpr(..), Id, parse) where
 
 import Lexer
+import Types
 }
 
 %name parse
@@ -10,7 +11,7 @@ import Lexer
 
 %expect 0
 
-%token 
+%token
     '='           { TAssign }
     '+'           { TPlus }
     '-'           { TMinus }
@@ -47,19 +48,19 @@ Params_ :                               { [] }
         | Params_ id                    { $2 : $1 }
 
 TopExpr :: { PExpr }
-TopExpr : TopExpr '+' TopExpr           { PApp (PApp (PVar "+") $1) $3 }
-        | TopExpr '-' TopExpr           { PApp (PApp (PVar "-") $1) $3 }
-        | TopExpr '*' TopExpr           { PApp (PApp (PVar "*") $1) $3 }
-        | TopExpr '/' TopExpr           { PApp (PApp (PVar "/") $1) $3 }
+TopExpr : TopExpr '+' TopExpr           { PApp [] (PApp [] (PVar [] "+") $1) $3 }
+        | TopExpr '-' TopExpr           { PApp [] (PApp [] (PVar [] "-") $1) $3 }
+        | TopExpr '*' TopExpr           { PApp [] (PApp [] (PVar [] "*") $1) $3 }
+        | TopExpr '/' TopExpr           { PApp [] (PApp [] (PVar [] "/") $1) $3 }
         | Expr                          { $1 }
 
 Expr    :: { PExpr }
 Expr    : Base                          { $1 }
-        | Expr Base                     { PApp $1 $2 }
+        | Expr Base                     { PApp [] $1 $2 }
 
 Base    :: { PExpr }
-Base    : num                           { PNum $1 }
-        | id                            { PVar $1 }
+Base    : num                           { PNum [] $1 }
+        | id                            { PVar [] $1 }
         | '(' TopExpr ')'               { $2 }
         | '(' '\\' Params '->' TopExpr ')' { createAbs $3 $5 }
 
@@ -75,15 +76,18 @@ data PDef
     = PDef Id PExpr
     deriving (Eq, Show)
 
+data Annotation = AType Type deriving (Eq, Show)
+type Ann = [Annotation]
+
 data PExpr
-    = PNum Int
-    | PApp PExpr PExpr
-    | PVar Id
-    | PAbs Id PExpr
+    = PNum Ann Int
+    | PApp Ann PExpr PExpr
+    | PVar Ann Id
+    | PAbs Ann Id PExpr
     deriving (Eq, Show)
 
 createAbs :: [Id] -> PExpr -> PExpr
 createAbs [] body = body
-createAbs (x:xs) body = PAbs x (createAbs xs body)
+createAbs (x:xs) body = PAbs [] x (createAbs xs body)
 
 }

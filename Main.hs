@@ -2,7 +2,7 @@ module Main where
 
 import Lexer
 import Parser
-import Types
+import Typer
 
 deleteLast [h] = []
 deleteLast (x : xs) = x : deleteLast xs
