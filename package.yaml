@@ -1,0 +1,43 @@
+name: gimel
+version: 0.1.0.0
+github: "githubuser/gimel"
+license: BSD3
+
+extra-source-files:
+  - README.md
+
+dependencies:
+  - base >= 4.7 && < 5
+  - array
+  - mtl
+  - lens
+  - containers
+  - data-partition
+
+library:
+  source-dirs: src
+
+executables:
+  gimel-exe:
+    main: Main.hs
+    source-dirs: app
+    ghc-options:
+      - -threaded
+      - -rtsopts
+      - -with-rtsopts=-N
+    dependencies:
+      - gimel
+    when:
+      - condition: false
+        other-modules: Paths_gimel
+
+tests:
+  gimel-test:
+    main: Spec.hs
+    source-dirs: test
+    ghc-options:
+      - -threaded
+      - -rtsopts
+      - -with-rtsopts=-N
+    dependencies:
+      - gimel
