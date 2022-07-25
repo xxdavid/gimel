@@ -4,6 +4,8 @@ import Data.Foldable (find)
 
 type Id = String
 
+-- * Abstract Syntax Tree
+
 data PFun = PFun Id PExpr
   deriving (Eq, Show)
 
@@ -18,12 +20,6 @@ data PProg = PProg {funs :: [PFun], datas :: [PData]}
 
 data PConstr = PConstr Id [Type] deriving (Eq, Show)
 
-data Annotation = AType Type deriving (Eq, Show)
-
-data AnnKind = AKType
-
-type Ann = [Annotation]
-
 data PExpr
   = PNum Ann Int
   | PApp Ann PExpr PExpr
@@ -31,24 +27,7 @@ data PExpr
   | PAbs Ann Id PExpr
   deriving (Eq, Show)
 
-addAnn :: Annotation -> PExpr -> PExpr
-addAnn x (PNum xs a) = PNum (x : xs) a
-addAnn x (PApp xs a b) = PApp (x : xs) a b
-addAnn x (PVar xs a) = PVar (x : xs) a
-addAnn x (PAbs xs a b) = PAbs (x : xs) a b
-
-getAnns :: PExpr -> Ann
-getAnns (PNum xs _) = xs
-getAnns (PApp xs _ _) = xs
-getAnns (PVar xs _) = xs
-getAnns (PAbs xs _ _) = xs
-
-matchAnnKind :: AnnKind -> Annotation -> Bool
-matchAnnKind AKType (AType _) = True
-matchAnnKind _ _ = False
-
-getAnn :: AnnKind -> PExpr -> Maybe Annotation
-getAnn kind e = find (matchAnnKind kind) $ getAnns e
+-- * Types
 
 data BaseType = TInt
   deriving (Show, Eq, Ord)
@@ -101,3 +80,29 @@ instance Enum TypeVar where
 
 instance Ord TypeVar where
   a <= b = fromEnum a <= fromEnum b
+
+-- * Annotations
+
+data Annotation = AType Type deriving (Eq, Show)
+
+data AnnKind = AKType
+
+type Ann = [Annotation]
+
+addAnn :: Annotation -> PExpr -> PExpr
+addAnn x (PNum xs a) = PNum (x : xs) a
+addAnn x (PApp xs a b) = PApp (x : xs) a b
+addAnn x (PVar xs a) = PVar (x : xs) a
+addAnn x (PAbs xs a b) = PAbs (x : xs) a b
+
+getAnns :: PExpr -> Ann
+getAnns (PNum xs _) = xs
+getAnns (PApp xs _ _) = xs
+getAnns (PVar xs _) = xs
+getAnns (PAbs xs _ _) = xs
+
+matchAnnKind :: AnnKind -> Annotation -> Bool
+matchAnnKind AKType (AType _) = True
+
+getAnn :: AnnKind -> PExpr -> Maybe Annotation
+getAnn kind e = find (matchAnnKind kind) $ getAnns e

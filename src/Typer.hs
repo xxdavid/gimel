@@ -26,6 +26,8 @@ data TypeState = TypeState {_lastVar :: LastVar, _typeSets :: TypeSets, _binding
 data Error = MatchError (Type, Type) | UndefinedVariableError Id | MultipleDefinitions Id
   deriving (Show)
 
+type TyperMonad a = ExceptT Error (State TypeState) a
+
 makeLenses ''TypeState
 
 addType :: PExpr -> Type -> PExpr
@@ -37,7 +39,7 @@ getType = unpack . getAnn AKType
     unpack (Just (AType t)) = t
     unpack _ = error "Invalid annotation"
 
-typeExpr :: PExpr -> ExceptT Error (State TypeState) PExpr
+typeExpr :: PExpr -> TyperMonad PExpr
 typeExpr e@(PNum _ _) = return $ addType e $ TBase TInt
 typeExpr (PApp as l r) = do
   l' <- typeExpr l
@@ -66,7 +68,7 @@ newVar = do
   lastVar %= succ
   use lastVar
 
-unify :: Type -> Type -> ExceptT Error (State TypeState) ()
+unify :: Type -> Type -> TyperMonad ()
 unify (TBase a) (TBase b)
   | a == b = return ()
   | otherwise = throwError $ MatchError (TBase a, TBase b)
@@ -90,19 +92,19 @@ runTypeExpr expr = runState (runExceptT (loadPredefined >> typeExpr expr)) initS
 
 initState = TypeState (TV "") P.empty Map.empty
 
-checkForDuplicateBind :: Id -> ExceptT Error (State TypeState) ()
+checkForDuplicateBind :: Id -> TyperMonad ()
 checkForDuplicateBind id = do
   binds <- use bindings
   when (id `Map.member` binds) $ throwError $ MultipleDefinitions id
 
-addTypedFun :: Id -> Type -> ExceptT Error (State TypeState) ()
+addTypedFun :: Id -> Type -> TyperMonad ()
 addTypedFun id t = do
   checkForDuplicateBind id
   v <- lift newVar
   bindings %= Map.insert id v
   typeSets %= P.joinElems (TVar v) t
 
-loadPredefined :: ExceptT Error (State TypeState) ()
+loadPredefined :: TyperMonad ()
 loadPredefined = mapM_ (uncurry addTypedFun) predefinedTypes
 
 predefinedTypes :: [(Id, Type)]
@@ -114,10 +116,10 @@ predefinedTypes =
     ("succ", TFun (TBase TInt) (TBase TInt))
   ]
 
-typeDefs :: [PFun] -> ExceptT Error (State TypeState) [PFun]
+typeDefs :: [PFun] -> TyperMonad [PFun]
 typeDefs = mapM typeFun
   where
-    typeFun :: PFun -> ExceptT Error (State TypeState) PFun
+    typeFun :: PFun -> TyperMonad PFun
     typeFun (PFun fn body) = do
       body' <- typeExpr body
       let t = getType body'
@@ -130,20 +132,20 @@ runTypeProg :: PProg -> (Either Error [PFun], TypeState)
 runTypeProg prog = runState (runExceptT (prepare >> typeDefs (funs prog))) initState
   where
     prepare = loadPredefined >> addDefBinds >> addConstructors
-    addDefBinds :: ExceptT Error (State TypeState) ()
+    addDefBinds :: TyperMonad ()
     addDefBinds = mapM_ addFun $ funs prog
       where
-        addFun :: PFun -> ExceptT Error (State TypeState) ()
+        addFun :: PFun -> TyperMonad ()
         addFun (PFun fn _) = do
           checkForDuplicateBind fn
           v <- lift newVar
           bindings %= Map.insert fn v
-    addConstructors :: ExceptT Error (State TypeState) ()
+    addConstructors :: TyperMonad ()
     addConstructors = mapM_ addData $ datas prog
       where
-        addData :: PData -> ExceptT Error (State TypeState) ()
+        addData :: PData -> TyperMonad ()
         addData (PData id constrs) = mapM_ (addConstr id) constrs
-        addConstr :: Id -> PConstr -> ExceptT Error (State TypeState) ()
+        addConstr :: Id -> PConstr -> TyperMonad ()
         addConstr typeId (PConstr constrId types) = do
           let t = foldr TFun (TData typeId) types
           addTypedFun constrId t
