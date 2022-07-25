@@ -23,7 +23,7 @@ type Bindings = Map.Map Id TypeVar
 data TypeState = TypeState {_lastVar :: LastVar, _typeSets :: TypeSets, _bindings :: Bindings}
   deriving (Show)
 
-data Error = MatchError (Type, Type) | UndefinedVariableError Id
+data Error = MatchError (Type, Type) | UndefinedVariableError Id | MultipleDefinitions Id
   deriving (Show)
 
 makeLenses ''TypeState
@@ -86,17 +86,23 @@ unify a b@(TVar _) = unify b a
 unify a b = throwError $ MatchError (a, b)
 
 runTypeExpr :: PExpr -> (Either Error PExpr, TypeState)
-runTypeExpr expr = runState (loadPredefined >> runExceptT (typeExpr expr)) initState
+runTypeExpr expr = runState (runExceptT (loadPredefined >> typeExpr expr)) initState
 
 initState = TypeState (TV "") P.empty Map.empty
 
-addTypedFun :: Id -> Type -> State TypeState ()
+checkForDuplicateBind :: Id -> ExceptT Error (State TypeState) ()
+checkForDuplicateBind id = do
+  binds <- use bindings
+  when (id `Map.member` binds) $ throwError $ MultipleDefinitions id
+
+addTypedFun :: Id -> Type -> ExceptT Error (State TypeState) ()
 addTypedFun id t = do
-  v <- newVar
+  checkForDuplicateBind id
+  v <- lift newVar
   bindings %= Map.insert id v
   typeSets %= P.joinElems (TVar v) t
 
-loadPredefined :: State TypeState ()
+loadPredefined :: ExceptT Error (State TypeState) ()
 loadPredefined = mapM_ (uncurry addTypedFun) predefinedTypes
 
 predefinedTypes :: [(Id, Type)]
@@ -121,22 +127,23 @@ typeDefs = mapM typeFun
       return (PFun fn body')
 
 runTypeProg :: PProg -> (Either Error [PFun], TypeState)
-runTypeProg prog = runState (prepare >> runExceptT (typeDefs $ funs prog)) initState
+runTypeProg prog = runState (runExceptT (prepare >> typeDefs (funs prog))) initState
   where
     prepare = loadPredefined >> addDefBinds >> addConstructors
-    addDefBinds :: State TypeState ()
+    addDefBinds :: ExceptT Error (State TypeState) ()
     addDefBinds = mapM_ addFun $ funs prog
       where
-        addFun :: PFun -> State TypeState ()
+        addFun :: PFun -> ExceptT Error (State TypeState) ()
         addFun (PFun fn _) = do
-          v <- newVar
+          checkForDuplicateBind fn
+          v <- lift newVar
           bindings %= Map.insert fn v
-    addConstructors :: State TypeState ()
+    addConstructors :: ExceptT Error (State TypeState) ()
     addConstructors = mapM_ addData $ datas prog
       where
-        addData :: PData -> State TypeState ()
+        addData :: PData -> ExceptT Error (State TypeState) ()
         addData (PData id constrs) = mapM_ (addConstr id) constrs
-        addConstr :: Id -> PConstr -> State TypeState ()
+        addConstr :: Id -> PConstr -> ExceptT Error (State TypeState) ()
         addConstr typeId (PConstr constrId types) = do
           let t = foldr TFun (TData typeId) types
           addTypedFun constrId t
