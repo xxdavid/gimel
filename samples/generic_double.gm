@@ -1,6 +1,0 @@
-genDouble f n = f (f n)
-plus x y = x + y
-plusTwo = plus two
-plusFour = genDouble plusTwo
-two = plus 1 one
-one = 1
