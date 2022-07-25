@@ -1,0 +1,8 @@
+data Bool = True | False
+data Sth = Zero | One Int | Two Int Int
+mkZero = Zero
+mkOne x = One x
+mkTwo = Two
+data List = Nil | Cons Int List
+mkNil = Nil
+mkList x = Cons x Nil
