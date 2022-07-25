@@ -42,7 +42,7 @@ Defs    : Defs_                         { reverse $1 }
 
 Defs_   :: { [PDef] }
 Defs_   : Def                           { [$1] }
-        | Defs_ nl Def                  { $3 : $1 }
+        | Defs_ Nls Def                 { $3 : $1 }
 
 Def     :: { PDef }
 Def     : id Params '=' TopExpr         { PDFun $ PFun $1 (createAbs $2 $4) }
@@ -92,6 +92,10 @@ Types_  :                               { [] }
 
 Type    :: { Type }
 Type    : Id                            { parseType $1 }
+
+Nls     :: { () }
+Nls     : nl                            { () }
+        | Nls nl                        { () }
 
 {
 parseError :: [Token] -> a
