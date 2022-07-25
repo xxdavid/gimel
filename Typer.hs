@@ -2,6 +2,7 @@
 
 module Typer where
 
+import Common
 import Control.Lens
 import Control.Monad
 import Control.Monad.Except
@@ -12,7 +13,6 @@ import qualified Data.Partition as P
 import qualified Data.Set as Set
 import Debug.Trace
 import Parser
-import Types
 
 type LastVar = TypeVar
 
@@ -105,10 +105,10 @@ predefinedTypes =
     ("succ", TFun (TBase TInt) (TBase TInt))
   ]
 
-typeDefs :: [PDef] -> ExceptT Error (State TypeState) [PDef]
+typeDefs :: [PFun] -> ExceptT Error (State TypeState) [PFun]
 typeDefs = mapM typeFun
   where
-    typeFun :: PDef -> ExceptT Error (State TypeState) PDef
+    typeFun :: PFun -> ExceptT Error (State TypeState) PFun
     typeFun (PFun fn body) = do
       body' <- typeExpr body
       let t = getType body'
@@ -117,13 +117,13 @@ typeDefs = mapM typeFun
       unify (TVar var) t
       return (PFun fn body')
 
-runTypeDefs :: [PDef] -> (Either Error [PDef], TypeState)
+runTypeDefs :: [PFun] -> (Either Error [PFun], TypeState)
 runTypeDefs defs = runState (loadPredefined >> addDefBinds >> runExceptT (typeDefs defs)) initState
   where
     addDefBinds :: State TypeState ()
     addDefBinds = mapM_ addFun defs
       where
-        addFun :: PDef -> State TypeState ()
+        addFun :: PFun -> State TypeState ()
         addFun (PFun fn _) = do
           v <- newVar
           bindings %= Map.insert fn v

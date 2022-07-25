@@ -1,6 +1,54 @@
-module Types where
+module Common where
+
+import Data.Foldable (find)
 
 type Id = String
+
+data PFun = PFun Id PExpr
+  deriving (Eq, Show)
+
+data PData = PData Id [PConstr]
+  deriving (Eq, Show)
+
+data PDef = PDFun PFun | PDData PData
+  deriving (Eq, Show)
+
+data PProg = PProg {funs :: [PFun], datas :: [PData]}
+  deriving (Eq, Show)
+
+data PConstr = PConstr Id [Type] deriving (Eq, Show)
+
+data Annotation = AType Type deriving (Eq, Show)
+
+data AnnKind = AKType
+
+type Ann = [Annotation]
+
+data PExpr
+  = PNum Ann Int
+  | PApp Ann PExpr PExpr
+  | PVar Ann Id
+  | PAbs Ann Id PExpr
+  deriving (Eq, Show)
+
+addAnn :: Annotation -> PExpr -> PExpr
+addAnn x (PNum xs a) = PNum (x : xs) a
+addAnn x (PApp xs a b) = PApp (x : xs) a b
+addAnn x (PVar xs a) = PVar (x : xs) a
+addAnn x (PAbs xs a b) = PAbs (x : xs) a b
+
+getAnns :: PExpr -> Ann
+getAnns (PNum xs _) = xs
+getAnns (PApp xs _ _) = xs
+getAnns (PVar xs _) = xs
+getAnns (PAbs xs _ _) = xs
+
+matchAnnKind :: AnnKind -> Annotation -> Bool
+matchAnnKind AKType (AType _) = True
+matchAnnKind _ _ = False
+
+getAnn :: AnnKind -> PExpr -> Maybe Annotation
+getAnn kind e = find (matchAnnKind kind) $ getAnns e
 
 data BaseType = TInt
   deriving (Show, Eq, Ord)

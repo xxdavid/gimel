@@ -1,5 +1,6 @@
 module Main where
 
+import Common
 import Lexer
 import Parser
 import Typer
@@ -11,9 +12,10 @@ main = do
   s <- getContents
   let tokens = alexScanTokens (deleteLast s)
   print tokens
-  let ast = parse tokens
-  print ast
-  let typeRes = runTypeDefs ast
+  let prog = parse tokens
+  print prog
+  let (PProg funs datas) = prog
+  let typeRes = runTypeDefs funs
   print typeRes
   case typeRes of
     (Right t, _) -> mapM_ printDef t

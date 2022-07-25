@@ -1,9 +1,9 @@
 {
-module Parser (PDef(..), PExpr(..), Id, parse, Annotation(..), AnnKind(..), addAnn, getAnns, getAnn) where
+module Parser(parse) where
 
+import Common
 import Lexer
-import Types
-import Data.Foldable(find)
+import Data.Maybe(catMaybes)
 }
 
 %name parse
@@ -34,6 +34,9 @@ import Data.Foldable(find)
 
 %%
 
+Prog    :: { PProg }
+Prog    : Defs                          { classifyDefs $1 }
+
 Defs    :: { [PDef] }
 Defs    : Defs_                         { reverse $1 }
 
@@ -42,8 +45,8 @@ Defs_   : Def                           { [$1] }
         | Defs_ nl Def                  { $3 : $1 }
 
 Def     :: { PDef }
-Def     : id Params '=' TopExpr         { PFun $1 (createAbs $2 $4) }
-        | data Id '=' Constrs           { PData $2 $4 }
+Def     : id Params '=' TopExpr         { PDFun $ PFun $1 (createAbs $2 $4) }
+        | data Id '=' Constrs           { PDData $ PData $2 $4 }
 
 Params  :: { [Id] }
 Params  : Params_                       { reverse $1 }
@@ -93,24 +96,6 @@ Type    : Id                            { parseType $1 }
 parseError :: [Token] -> a
 parseError _ = error "Parse error"
 
-data PDef
-    = PFun Id PExpr
-    | PData Id [PConstr]
-    deriving (Eq, Show)
-
-data PConstr = PConstr Id [Type] deriving (Eq, Show)
-
-data Annotation = AType Type deriving (Eq, Show)
-data AnnKind = AKType
-type Ann = [Annotation]
-
-data PExpr
-    = PNum Ann Int
-    | PApp Ann PExpr PExpr
-    | PVar Ann Id
-    | PAbs Ann Id PExpr
-    deriving (Eq, Show)
-
 createAbs :: [Id] -> PExpr -> PExpr
 createAbs [] body = body
 createAbs (x:xs) body = PAbs [] x (createAbs xs body)
@@ -119,23 +104,11 @@ parseType :: String -> Type
 parseType "Int" = TBase TInt
 parseType id = TData id
 
-addAnn :: Annotation -> PExpr -> PExpr
-addAnn x (PNum xs a) = PNum (x:xs) a
-addAnn x (PApp xs a b) = PApp (x:xs) a b
-addAnn x (PVar xs a) = PVar (x:xs) a
-addAnn x (PAbs xs a b) = PAbs (x:xs) a b
-
-getAnns :: PExpr -> Ann
-getAnns (PNum xs _) = xs
-getAnns (PApp xs _ _) = xs
-getAnns (PVar xs _) = xs
-getAnns (PAbs xs _ _) = xs
-
-matchAnnKind :: AnnKind -> Annotation -> Bool
-matchAnnKind AKType (AType _) = True
-matchAnnKind _ _ = False
-
-getAnn :: AnnKind -> PExpr -> Maybe Annotation
-getAnn kind e = find (matchAnnKind kind) $ getAnns e
+classifyDefs :: [PDef] -> PProg
+classifyDefs defs = PProg (catMaybes $ map getFun defs) (catMaybes $ map getData defs) where
+        getFun (PDFun x) = Just x
+        getFun _ = Nothing
+        getData (PDData x) = Just x
+        getData _ = Nothing
 
 }
