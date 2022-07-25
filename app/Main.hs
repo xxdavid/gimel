@@ -14,8 +14,7 @@ main = do
   print tokens
   let prog = parse tokens
   print prog
-  let (PProg funs datas) = prog
-  let typeRes = runTypeDefs funs
+  let typeRes = runTypeProg prog
   print typeRes
   case typeRes of
     (Right t, _) -> mapM_ printDef t

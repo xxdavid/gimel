@@ -69,6 +69,7 @@ Expr    : Base                          { $1 }
 Base    :: { PExpr }
 Base    : num                           { PNum [] $1 }
         | id                            { PVar [] $1 }
+        | Id                            { PVar [] $1 }
         | '(' TopExpr ')'               { $2 }
         | '(' '\\' Params '->' TopExpr ')' { createAbs $3 $5 }
 

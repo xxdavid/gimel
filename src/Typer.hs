@@ -73,6 +73,9 @@ unify (TBase a) (TBase b)
 unify (TFun a b) (TFun c d) = do
   unify a c
   unify b d
+unify (TData a) (TData b)
+  | a == b = return ()
+  | otherwise = throwError $ MatchError (TData a, TData b)
 unify a@(TVar _) b = do
   p <- use typeSets
   let a' = P.rep p a
@@ -87,14 +90,14 @@ runTypeExpr expr = runState (loadPredefined >> runExceptT (typeExpr expr)) initS
 
 initState = TypeState (TV "") P.empty Map.empty
 
+addTypedFun :: Id -> Type -> State TypeState ()
+addTypedFun id t = do
+  v <- newVar
+  bindings %= Map.insert id v
+  typeSets %= P.joinElems (TVar v) t
+
 loadPredefined :: State TypeState ()
-loadPredefined = mapM_ addFun predefinedTypes
-  where
-    addFun :: (Id, Type) -> State TypeState ()
-    addFun (f, t) = do
-      v <- newVar
-      bindings %= Map.insert f v
-      typeSets %= P.joinElems (TVar v) t
+loadPredefined = mapM_ (uncurry addTypedFun) predefinedTypes
 
 predefinedTypes :: [(Id, Type)]
 predefinedTypes =
@@ -117,16 +120,26 @@ typeDefs = mapM typeFun
       unify (TVar var) t
       return (PFun fn body')
 
-runTypeDefs :: [PFun] -> (Either Error [PFun], TypeState)
-runTypeDefs defs = runState (loadPredefined >> addDefBinds >> runExceptT (typeDefs defs)) initState
+runTypeProg :: PProg -> (Either Error [PFun], TypeState)
+runTypeProg prog = runState (prepare >> runExceptT (typeDefs $ funs prog)) initState
   where
+    prepare = loadPredefined >> addDefBinds >> addConstructors
     addDefBinds :: State TypeState ()
-    addDefBinds = mapM_ addFun defs
+    addDefBinds = mapM_ addFun $ funs prog
       where
         addFun :: PFun -> State TypeState ()
         addFun (PFun fn _) = do
           v <- newVar
           bindings %= Map.insert fn v
+    addConstructors :: State TypeState ()
+    addConstructors = mapM_ addData $ datas prog
+      where
+        addData :: PData -> State TypeState ()
+        addData (PData id constrs) = mapM_ (addConstr id) constrs
+        addConstr :: Id -> PConstr -> State TypeState ()
+        addConstr typeId (PConstr constrId types) = do
+          let t = foldr TFun (TData typeId) types
+          addTypedFun constrId t
 
 printTypedExpr :: PExpr -> String
 printTypedExpr e = process e 0
