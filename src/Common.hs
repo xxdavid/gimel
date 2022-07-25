@@ -55,8 +55,8 @@ data BaseType = TInt
 
 data Type
   = TBase BaseType
-  | TFun Type Type
   | TData Id
+  | TFun Type Type
   | TVar TypeVar
   deriving (Eq, Ord)
 

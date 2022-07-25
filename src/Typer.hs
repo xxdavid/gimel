@@ -141,8 +141,8 @@ runTypeProg prog = runState (prepare >> runExceptT (typeDefs $ funs prog)) initS
           let t = foldr TFun (TData typeId) types
           addTypedFun constrId t
 
-printTypedExpr :: PExpr -> String
-printTypedExpr e = process e 0
+printTypedExpr :: PExpr -> TypeSets -> String
+printTypedExpr e sets = process e 0
   where
     process :: PExpr -> Int -> String
     process e@(PNum _ n) i = ind i (show n ++ " :: " ++ showType e)
@@ -167,4 +167,9 @@ printTypedExpr e = process e 0
     ind :: Int -> String -> String
     ind i s = concat (replicate i "  ") ++ s
 
-    showType = show . getType
+    showType = show . replaceVars . getType
+    replaceVars :: Type -> Type
+    replaceVars t@(TBase _) = t
+    replaceVars t@(TData _) = t
+    replaceVars (TFun a b) = TFun (replaceVars a) (replaceVars b)
+    replaceVars t@(TVar _) = P.rep sets t

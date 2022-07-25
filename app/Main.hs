@@ -1,6 +1,7 @@
 module Main where
 
 import Common
+import Control.Lens.Getter ((^.))
 import Lexer
 import Parser
 import Typer
@@ -17,7 +18,7 @@ main = do
   let typeRes = runTypeProg prog
   print typeRes
   case typeRes of
-    (Right t, _) -> mapM_ printDef t
+    (Right t, state) -> mapM_ (printDef $ state ^. typeSets) t
     _ -> pure ()
   where
-    printDef (PFun fn body) = putStrLn $ fn ++ " = " ++ printTypedExpr body
+    printDef sets (PFun fn body) = putStrLn $ fn ++ " = " ++ printTypedExpr body sets
