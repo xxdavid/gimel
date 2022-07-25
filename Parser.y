@@ -13,18 +13,21 @@ import Data.Foldable(find)
 %expect 0
 
 %token
-    '='           { TAssign }
-    '+'           { TPlus }
-    '-'           { TMinus }
-    '*'           { TStar }
-    '/'           { TSlash }
-    '\\'          { TBackslash }
-    '('           { TLParen }
-    ')'           { TRParen }
-    '->'          { TArrow }
-    id            { TId $$ }
-    num           { TNum $$ }
-    nl            { TNewLine }
+    '='           { LAssign }
+    '+'           { LPlus }
+    '-'           { LMinus }
+    '*'           { LStar }
+    '/'           { LSlash }
+    '\\'          { LBackslash }
+    '('           { LLParen }
+    ')'           { LRParen }
+    '->'          { LArrow }
+    '|'           { LPipe }
+    data          { LData }
+    id            { LId $$ }
+    Id            { LUpperId $$ }
+    num           { LNum $$ }
+    nl            { LNewLine }
 
 %left '+' '-'
 %left '*' '/'
@@ -39,7 +42,8 @@ Defs_   : Def                           { [$1] }
         | Defs_ nl Def                  { $3 : $1 }
 
 Def     :: { PDef }
-Def     : id Params '=' TopExpr         { PDef $1 (createAbs $2 $4) }
+Def     : id Params '=' TopExpr         { PFun $1 (createAbs $2 $4) }
+        | data Id '=' Constrs           { PData $2 $4 }
 
 Params  :: { [Id] }
 Params  : Params_                       { reverse $1 }
@@ -65,17 +69,36 @@ Base    : num                           { PNum [] $1 }
         | '(' TopExpr ')'               { $2 }
         | '(' '\\' Params '->' TopExpr ')' { createAbs $3 $5 }
 
+Constrs :: { [PConstr] }
+Constrs : Constrs_                      { reverse $1 }
 
+Constrs_:: { [PConstr] }
+Constrs_: Constr                        { [$1] }
+        | Constrs_ '|' Constr           { $3 : $1 }
+
+Constr  :: { PConstr }
+Constr  : Id Types                      { PConstr $1 $2 }
+
+Types   :: { [Type] }
+Types   : Types_                        { reverse $1 }
+
+Types_  :: { [Type] }
+Types_  :                               { [] }
+        | Types_ Type                   { $2 : $1 }
+
+Type    :: { Type }
+Type    : Id                            { parseType $1 }
 
 {
 parseError :: [Token] -> a
 parseError _ = error "Parse error"
 
-type Id = String
-
 data PDef
-    = PDef Id PExpr
+    = PFun Id PExpr
+    | PData Id [PConstr]
     deriving (Eq, Show)
+
+data PConstr = PConstr Id [Type] deriving (Eq, Show)
 
 data Annotation = AType Type deriving (Eq, Show)
 data AnnKind = AKType
@@ -91,6 +114,10 @@ data PExpr
 createAbs :: [Id] -> PExpr -> PExpr
 createAbs [] body = body
 createAbs (x:xs) body = PAbs [] x (createAbs xs body)
+
+parseType :: String -> Type
+parseType "Int" = TBase TInt
+parseType id = TData id
 
 addAnn :: Annotation -> PExpr -> PExpr
 addAnn x (PNum xs a) = PNum (x:xs) a

@@ -1,11 +1,14 @@
 module Types where
 
+type Id = String
+
 data BaseType = TInt
   deriving (Show, Eq, Ord)
 
 data Type
   = TBase BaseType
   | TFun Type Type
+  | TData Id
   | TVar TypeVar
   deriving (Eq, Ord)
 
@@ -19,6 +22,7 @@ instance Show Type where
   show (TBase TInt) = "Int"
   show (TVar tv) = show tv
   show (TFun a b) = "(" ++ show a ++ " -> " ++ show b ++ ")"
+  show (TData t) = t
 
 instance Enum TypeVar where
   fromEnum (TV v) = fromEnumTV v

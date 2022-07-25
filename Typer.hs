@@ -109,13 +109,13 @@ typeDefs :: [PDef] -> ExceptT Error (State TypeState) [PDef]
 typeDefs = mapM typeFun
   where
     typeFun :: PDef -> ExceptT Error (State TypeState) PDef
-    typeFun (PDef fn body) = do
+    typeFun (PFun fn body) = do
       body' <- typeExpr body
       let t = getType body'
       binds <- use bindings
       let Just var = Map.lookup fn binds
       unify (TVar var) t
-      return (PDef fn body')
+      return (PFun fn body')
 
 runTypeDefs :: [PDef] -> (Either Error [PDef], TypeState)
 runTypeDefs defs = runState (loadPredefined >> addDefBinds >> runExceptT (typeDefs defs)) initState
@@ -124,7 +124,7 @@ runTypeDefs defs = runState (loadPredefined >> addDefBinds >> runExceptT (typeDe
     addDefBinds = mapM_ addFun defs
       where
         addFun :: PDef -> State TypeState ()
-        addFun (PDef fn _) = do
+        addFun (PFun fn _) = do
           v <- newVar
           bindings %= Map.insert fn v
 

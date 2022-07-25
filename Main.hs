@@ -19,4 +19,4 @@ main = do
     (Right t, _) -> mapM_ printDef t
     _ -> pure ()
   where
-    printDef (PDef fn body) = putStrLn $ fn ++ " = " ++ printTypedExpr body
+    printDef (PFun fn body) = putStrLn $ fn ++ " = " ++ printTypedExpr body
