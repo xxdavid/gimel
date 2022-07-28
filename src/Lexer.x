@@ -21,6 +21,9 @@ tokens :-
     \|                      { \_ s -> LPipe }
     \->                     { \_ s -> LArrow }
     data                    { \_ s -> LData }
+    do                      { \_ s -> LDo }
+    end                     { \_ s -> LEnd }
+    case                    { \_ s -> LCase }
     $lower$letter*          { \_ s -> LId s }
     $upper$letter*          { \_ s -> LUpperId s }
     $digit+                 { \_ s -> LNum (read s) }
@@ -44,6 +47,9 @@ data Token
     | LArrow
     | LPipe
     | LData
+    | LDo
+    | LEnd
+    | LCase
     | LNewLine
     deriving (Eq, Show)
 }

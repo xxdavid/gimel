@@ -23,7 +23,12 @@ type Bindings = Map.Map Id TypeVar
 data TypeState = TypeState {_lastVar :: LastVar, _typeSets :: TypeSets, _bindings :: Bindings}
   deriving (Show)
 
-data Error = MatchError (Type, Type) | UndefinedVariableError Id | MultipleDefinitions Id
+data Error
+  = MatchError (Type, Type)
+  | UndefinedVariableError Id
+  | MultipleDefinitions Id
+  | UndefinedConstructorError Id
+  | BadConstructorPatternArity Id Int Int
   deriving (Show)
 
 type TyperMonad a = ExceptT Error (State TypeState) a
@@ -55,18 +60,68 @@ typeExpr e@(PVar _ v) = do
     Just tv -> return $ addType e $ TVar tv
     Nothing -> throwError $ UndefinedVariableError v
 typeExpr (PAbs as x body) = do
-  origBinds <- use bindings
   tv <- lift newVar
-  bindings %= Map.insert x tv
-  body' <- typeExpr body
+  body' <- evalInNewScope [(x, tv)] $ typeExpr body
   let bodyType = getType body'
-  bindings .= origBinds
   return $ addType (PAbs as x body') $ TFun (TVar tv) bodyType
+typeExpr e@(PCase as x cls) = do
+  x' <- typeExpr x
+  let matchType = getType x'
+  resType <- TVar <$> lift newVar
+  cls' <- mapM (processClause matchType resType) cls
+  return $ addType (PCase as x' cls') resType
+  where
+    processClause :: Type -> Type -> PClause -> TyperMonad PClause
+    processClause matchT resT (PClause p@(PPNum _) body) = do
+      unify matchT (TBase TInt)
+      body' <- typeExpr body
+      unify resT (getType body')
+      return $ PClause p body'
+    processClause matchT resT (PClause p@(PPVar v) body) = do
+      tv <- lift newVar
+      unify matchT (TVar tv)
+      body' <- evalInNewScope [(v, tv)] $ typeExpr body
+      unify resT (getType body')
+      return $ PClause p body'
+    processClause matchT resT (PClause p@(PPConstr c vars) body) = do
+      binds <- use bindings
+      case Map.lookup c binds of
+        Nothing -> throwError $ UndefinedConstructorError c
+        Just constrTV -> do
+          ts <- use typeSets
+          let constrType = P.rep ts (TVar constrTV)
+          let constrFinalType = getConstrFinalType constrType
+          unify matchT constrFinalType
+          let constrArity = countArgs constrType
+          let nVars = length vars
+          when (constrArity /= nVars) $
+            throwError $
+              BadConstructorPatternArity c constrArity nVars
+          varsTVs <- mapM (\_ -> lift newVar) vars
+          mapM_ (uncurry unify) (zip (map TVar varsTVs) (getConstrArgTypes constrType))
+          body' <- evalInNewScope (zip vars varsTVs) $ typeExpr body
+          unify resT (getType body')
+          return $ PClause p body'
+      where
+        countArgs (TFun _ x) = countArgs x + 1
+        countArgs _ = 0
+        getConstrFinalType (TFun _ x) = getConstrFinalType x
+        getConstrFinalType x = x
+        getConstrArgTypes (TFun x xs) = x : getConstrArgTypes xs
+        getConstrArgTypes _ = []
 
 newVar :: State TypeState TypeVar
 newVar = do
   lastVar %= succ
   use lastVar
+
+evalInNewScope :: [(Id, TypeVar)] -> TyperMonad a -> TyperMonad a
+evalInNewScope vars f = do
+  origBinds <- use bindings
+  mapM_ (\(id, tv) -> bindings %= Map.insert id tv) vars
+  res <- f
+  bindings .= origBinds
+  return res
 
 unify :: Type -> Type -> TyperMonad ()
 unify (TBase a) (TBase b)
@@ -172,6 +227,26 @@ printTypedExpr e sets = process e 0
         ++ process b (i + 1)
         ++ "\n"
         ++ ind i ")"
+    process e@(PCase _ x cls) i =
+      ind i ("( :: " ++ showType e)
+        ++ "\n"
+        ++ ind (i + 1) "case"
+        ++ "\n"
+        ++ process x (i + 2)
+        ++ "\n"
+        ++ ind (i + 1) "do"
+        ++ "\n"
+        ++ unlines (map printClause cls)
+        ++ "\n"
+        ++ ind (i + 1) "end"
+        ++ "\n"
+        ++ ind i ")"
+      where
+        printClause (PClause pattern body) =
+          ind (i + 2) (printPattern pattern ++ " -> " ++ "\n" ++ process body (i + 3))
+        printPattern (PPNum n) = show n
+        printPattern (PPVar x) = x
+        printPattern (PPConstr c args) = unwords (c : args)
 
     ind :: Int -> String -> String
     ind i s = concat (replicate i "  ") ++ s
@@ -181,4 +256,6 @@ printTypedExpr e sets = process e 0
     replaceVars t@(TBase _) = t
     replaceVars t@(TData _) = t
     replaceVars (TFun a b) = TFun (replaceVars a) (replaceVars b)
-    replaceVars t@(TVar _) = P.rep sets t
+    replaceVars t@(TVar _) = if rep == t then t else replaceVars rep
+      where
+        rep = P.rep sets t

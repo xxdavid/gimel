@@ -24,6 +24,9 @@ import Data.Maybe(catMaybes)
     '->'          { LArrow }
     '|'           { LPipe }
     data          { LData }
+    do            { LDo }
+    end           { LEnd }
+    case          { LCase }
     id            { LId $$ }
     Id            { LUpperId $$ }
     num           { LNum $$ }
@@ -61,6 +64,7 @@ TopExpr : TopExpr '+' TopExpr           { PApp [] (PApp [] (PVar [] "+") $1) $3 
         | TopExpr '*' TopExpr           { PApp [] (PApp [] (PVar [] "*") $1) $3 }
         | TopExpr '/' TopExpr           { PApp [] (PApp [] (PVar [] "/") $1) $3 }
         | Expr                          { $1 }
+        | Case                          { $1 }
 
 Expr    :: { PExpr }
 Expr    : Base                          { $1 }
@@ -72,6 +76,29 @@ Base    : num                           { PNum [] $1 }
         | Id                            { PVar [] $1 }
         | '(' TopExpr ')'               { $2 }
         | '(' '\\' Params '->' TopExpr ')' { createAbs $3 $5 }
+
+Case    :: { PExpr }
+Case    : case TopExpr do nl Clauses nl end { PCase [] $2 (reverse $5) }
+
+-- When reversing via a new non-terminal, it reports a shift-reduce conflict.
+Clauses :: { [PClause] }
+Clauses : Clause                        { [$1] }
+        | Clauses nl Clause             { $3 : $1 }
+
+Clause  :: { PClause }
+Clause  :  Pattern '->' TopExpr         { PClause $1 $3 }
+
+Pattern :: { PPattern }
+Pattern : num                           { PPNum $1 }
+        | id                            { PPVar $1 }
+        | Id Params                     { PPConstr $1 $2 }
+
+Patterns:: { [PPattern] }
+Patterns: Patterns_                     { reverse $1 }
+
+Patterns_:: { [PPattern] }
+Patterns_:                              { [] }
+         | Patterns_ Pattern            { $2 : $1 }
 
 Constrs :: { [PConstr] }
 Constrs : Constrs_                      { reverse $1 }

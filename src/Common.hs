@@ -20,11 +20,20 @@ data PProg = PProg {funs :: [PFun], datas :: [PData]}
 
 data PConstr = PConstr Id [Type] deriving (Eq, Show)
 
+data PClause = PClause PPattern PExpr deriving (Eq, Show)
+
+data PPattern
+  = PPNum Int
+  | PPVar Id
+  | PPConstr Id [Id]
+  deriving (Eq, Show)
+
 data PExpr
   = PNum Ann Int
   | PApp Ann PExpr PExpr
   | PVar Ann Id
   | PAbs Ann Id PExpr
+  | PCase Ann PExpr [PClause]
   deriving (Eq, Show)
 
 -- * Types
@@ -94,12 +103,14 @@ addAnn x (PNum xs a) = PNum (x : xs) a
 addAnn x (PApp xs a b) = PApp (x : xs) a b
 addAnn x (PVar xs a) = PVar (x : xs) a
 addAnn x (PAbs xs a b) = PAbs (x : xs) a b
+addAnn x (PCase xs a b) = PCase (x : xs) a b
 
 getAnns :: PExpr -> Ann
 getAnns (PNum xs _) = xs
 getAnns (PApp xs _ _) = xs
 getAnns (PVar xs _) = xs
 getAnns (PAbs xs _ _) = xs
+getAnns (PCase xs _ _) = xs
 
 matchAnnKind :: AnnKind -> Annotation -> Bool
 matchAnnKind AKType (AType _) = True
