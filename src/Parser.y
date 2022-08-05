@@ -89,8 +89,7 @@ Clause  :: { PClause }
 Clause  :  Pattern '->' TopExpr         { PClause $1 $3 }
 
 Pattern :: { PPattern }
-Pattern : num                           { PPNum $1 }
-        | id                            { PPVar $1 }
+Pattern : id                            { PPVar $1 }
         | Id Params                     { PPConstr $1 $2 }
 
 Patterns:: { [PPattern] }

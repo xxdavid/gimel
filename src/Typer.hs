@@ -70,11 +70,6 @@ typeExpr e@(PCase as x cls) = do
   return $ putType (PCase as x' cls') resType
   where
     processClause :: Type -> Type -> PClause -> TyperMonad PClause
-    processClause matchT resT (PClause p@(PPNum _) body) = do
-      unify matchT (TBase TInt)
-      body' <- typeExpr body
-      unify resT (getType body')
-      return $ PClause p body'
     processClause matchT resT (PClause p@(PPVar v) body) = do
       tv <- lift newVar
       unify matchT (TVar tv)
@@ -264,7 +259,6 @@ printTypedExpr e sets = process e 0
       where
         printClause (PClause pattern body) =
           ind (i + 2) (printPattern pattern ++ " -> " ++ "\n" ++ process body (i + 3))
-        printPattern (PPNum n) = show n
         printPattern (PPVar x) = x
         printPattern (PPConstr c args) = unwords (c : args)
 

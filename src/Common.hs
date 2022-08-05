@@ -24,8 +24,7 @@ data PConstr = PConstr Id [Type] deriving (Eq, Show)
 data PClause = PClause PPattern PExpr deriving (Eq, Show)
 
 data PPattern
-  = PPNum Int
-  | PPVar Id
+  = PPVar Id
   | PPConstr Id [Id]
   deriving (Eq, Show)
 
