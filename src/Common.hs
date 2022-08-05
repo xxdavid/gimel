@@ -1,6 +1,7 @@
 module Common where
 
 import Data.Foldable (find)
+import Data.Functor.Identity
 
 type Id = String
 
@@ -37,13 +38,7 @@ data PExpr
   deriving (Eq, Show)
 
 postwalk :: (PExpr -> PExpr) -> PExpr -> PExpr
-postwalk f e@(PNum _ _) = f e
-postwalk f (PApp as a b) = f $ PApp as (postwalk f a) (postwalk f b)
-postwalk f e@(PVar _ _) = f e
-postwalk f (PAbs as v b) = f $ PAbs as v (postwalk f b)
-postwalk f (PCase as x cls) = f $ PCase as (postwalk f x) (map walkClause cls)
-  where
-    walkClause (PClause ptn e) = PClause ptn (postwalk f e)
+postwalk f = runIdentity . postwalkM ((pure . f) :: (PExpr -> Identity PExpr))
 
 postwalkM :: Monad m => (PExpr -> m PExpr) -> PExpr -> m PExpr
 postwalkM f e@(PNum _ _) = f e
