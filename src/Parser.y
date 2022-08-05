@@ -59,26 +59,26 @@ Params_ :                               { [] }
         | Params_ id                    { $2 : $1 }
 
 TopExpr :: { PExpr }
-TopExpr : TopExpr '+' TopExpr           { PApp [] (PApp [] (PVar [] "+") $1) $3 }
-        | TopExpr '-' TopExpr           { PApp [] (PApp [] (PVar [] "-") $1) $3 }
-        | TopExpr '*' TopExpr           { PApp [] (PApp [] (PVar [] "*") $1) $3 }
-        | TopExpr '/' TopExpr           { PApp [] (PApp [] (PVar [] "/") $1) $3 }
+TopExpr : TopExpr '+' TopExpr           { PApp ann (PApp ann (PVar ann "+") $1) $3 }
+        | TopExpr '-' TopExpr           { PApp ann (PApp ann (PVar ann "-") $1) $3 }
+        | TopExpr '*' TopExpr           { PApp ann (PApp ann (PVar ann "*") $1) $3 }
+        | TopExpr '/' TopExpr           { PApp ann (PApp ann (PVar ann "/") $1) $3 }
         | Expr                          { $1 }
         | Case                          { $1 }
 
 Expr    :: { PExpr }
 Expr    : Base                          { $1 }
-        | Expr Base                     { PApp [] $1 $2 }
+        | Expr Base                     { PApp ann $1 $2 }
 
 Base    :: { PExpr }
-Base    : num                           { PNum [] $1 }
-        | id                            { PVar [] $1 }
-        | Id                            { PVar [] $1 }
+Base    : num                           { PNum ann $1 }
+        | id                            { PVar ann $1 }
+        | Id                            { PVar ann $1 }
         | '(' TopExpr ')'               { $2 }
         | '(' '\\' Params '->' TopExpr ')' { createAbs $3 $5 }
 
 Case    :: { PExpr }
-Case    : case TopExpr do nl Clauses nl end { PCase [] $2 (reverse $5) }
+Case    : case TopExpr do nl Clauses nl end { PCase ann $2 (reverse $5) }
 
 -- When reversing via a new non-terminal, it reports a shift-reduce conflict.
 Clauses :: { [PClause] }
@@ -130,7 +130,7 @@ parseError _ = error "Parse error"
 
 createAbs :: [Id] -> PExpr -> PExpr
 createAbs [] body = body
-createAbs (x:xs) body = PAbs [] x (createAbs xs body)
+createAbs (x:xs) body = PAbs ann x (createAbs xs body)
 
 parseType :: String -> Type
 parseType "Int" = TBase TInt
@@ -142,5 +142,7 @@ classifyDefs defs = PProg (catMaybes $ map getFun defs) (catMaybes $ map getData
         getFun _ = Nothing
         getData (PDData x) = Just x
         getData _ = Nothing
+
+ann = emptyAnn
 
 }

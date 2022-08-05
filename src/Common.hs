@@ -36,6 +36,34 @@ data PExpr
   | PCase Ann PExpr [PClause]
   deriving (Eq, Show)
 
+postwalk :: (PExpr -> PExpr) -> PExpr -> PExpr
+postwalk f e@(PNum _ _) = f e
+postwalk f (PApp as a b) = f $ PApp as (postwalk f a) (postwalk f b)
+postwalk f e@(PVar _ _) = f e
+postwalk f (PAbs as v b) = f $ PAbs as v (postwalk f b)
+postwalk f (PCase as x cls) = f $ PCase as (postwalk f x) (map walkClause cls)
+  where
+    walkClause (PClause ptn e) = PClause ptn (postwalk f e)
+
+postwalkM :: Monad m => (PExpr -> m PExpr) -> PExpr -> m PExpr
+postwalkM f e@(PNum _ _) = f e
+postwalkM f (PApp as a b) = do
+  a' <- postwalkM f a
+  b' <- postwalkM f b
+  f $ PApp as a' b'
+postwalkM f e@(PVar _ _) = f e
+postwalkM f (PAbs as v b) = do
+  b' <- postwalkM f b
+  f $ PAbs as v b'
+postwalkM f (PCase as x cls) = do
+  x' <- postwalkM f x
+  cls' <- mapM walkClause cls
+  f $ PCase as x' cls'
+  where
+    walkClause (PClause ptn e) = do
+      e' <- postwalkM f e
+      return $ PClause ptn e'
+
 -- * Types
 
 data BaseType = TInt
@@ -92,28 +120,21 @@ instance Ord TypeVar where
 
 -- * Annotations
 
-data Annotation = AType Type deriving (Eq, Show)
+type Ann = Maybe Type
 
-data AnnKind = AKType
+emptyAnn :: Ann
+emptyAnn = Nothing
 
-type Ann = [Annotation]
-
-addAnn :: Annotation -> PExpr -> PExpr
-addAnn x (PNum xs a) = PNum (x : xs) a
-addAnn x (PApp xs a b) = PApp (x : xs) a b
-addAnn x (PVar xs a) = PVar (x : xs) a
-addAnn x (PAbs xs a b) = PAbs (x : xs) a b
-addAnn x (PCase xs a b) = PCase (x : xs) a b
+updateAnns :: (Ann -> Ann) -> PExpr -> PExpr
+updateAnns f (PNum as a) = PNum (f as) a
+updateAnns f (PApp as a b) = PApp (f as) a b
+updateAnns f (PVar as a) = PVar (f as) a
+updateAnns f (PAbs as a b) = PAbs (f as) a b
+updateAnns f (PCase as a b) = PCase (f as) a b
 
 getAnns :: PExpr -> Ann
-getAnns (PNum xs _) = xs
-getAnns (PApp xs _ _) = xs
-getAnns (PVar xs _) = xs
-getAnns (PAbs xs _ _) = xs
-getAnns (PCase xs _ _) = xs
-
-matchAnnKind :: AnnKind -> Annotation -> Bool
-matchAnnKind AKType (AType _) = True
-
-getAnn :: AnnKind -> PExpr -> Maybe Annotation
-getAnn kind e = find (matchAnnKind kind) $ getAnns e
+getAnns (PNum as _) = as
+getAnns (PApp as _ _) = as
+getAnns (PVar as _) = as
+getAnns (PAbs as _ _) = as
+getAnns (PCase as _ _) = as

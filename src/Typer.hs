@@ -29,23 +29,21 @@ data Error
   | MultipleDefinitions Id
   | UndefinedConstructorError Id
   | BadConstructorPatternArity Id Int Int
+  | UnresolvedVariable TypeVar PExpr
   deriving (Show)
 
 type TyperMonad a = ExceptT Error (State TypeState) a
 
 makeLenses ''TypeState
 
-addType :: PExpr -> Type -> PExpr
-addType e t = addAnn (AType t) e
+putType :: PExpr -> Type -> PExpr
+putType e t = updateAnns (const $ Just t) e
 
 getType :: PExpr -> Type
-getType = unpack . getAnn AKType
-  where
-    unpack (Just (AType t)) = t
-    unpack _ = error "Invalid annotation"
+getType = fromJust . getAnns
 
 typeExpr :: PExpr -> TyperMonad PExpr
-typeExpr e@(PNum _ _) = return $ addType e $ TBase TInt
+typeExpr e@(PNum _ _) = return $ putType e $ TBase TInt
 typeExpr (PApp as l r) = do
   l' <- typeExpr l
   let a = getType l'
@@ -53,23 +51,23 @@ typeExpr (PApp as l r) = do
   let b = getType r'
   c <- TVar <$> lift newVar
   unify a (TFun b c)
-  return $ addType (PApp as l' r') c
+  return $ putType (PApp as l' r') c
 typeExpr e@(PVar _ v) = do
   binds <- use bindings
   case Map.lookup v binds of
-    Just tv -> return $ addType e $ TVar tv
+    Just tv -> return $ putType e $ TVar tv
     Nothing -> throwError $ UndefinedVariableError v
 typeExpr (PAbs as x body) = do
   tv <- lift newVar
   body' <- evalInNewScope [(x, tv)] $ typeExpr body
   let bodyType = getType body'
-  return $ addType (PAbs as x body') $ TFun (TVar tv) bodyType
+  return $ putType (PAbs as x body') $ TFun (TVar tv) bodyType
 typeExpr e@(PCase as x cls) = do
   x' <- typeExpr x
   let matchType = getType x'
   resType <- TVar <$> lift newVar
   cls' <- mapM (processClause matchType resType) cls
-  return $ addType (PCase as x' cls') resType
+  return $ putType (PCase as x' cls') resType
   where
     processClause :: Type -> Type -> PClause -> TyperMonad PClause
     processClause matchT resT (PClause p@(PPNum _) body) = do
@@ -159,6 +157,22 @@ addTypedFun id t = do
   bindings %= Map.insert id v
   typeSets %= P.joinElems (TVar v) t
 
+resolveTypeVars :: TypeSets -> PExpr -> TyperMonad PExpr
+resolveTypeVars sets = postwalkM processNode
+  where
+    processNode :: PExpr -> TyperMonad PExpr
+    processNode expr = putType expr <$> (pure (resolve $ getType expr) >>= check expr)
+    resolve t@(TBase _) = t
+    resolve t@(TData _) = t
+    resolve (TFun a b) = TFun (resolve a) (resolve b)
+    resolve t@(TVar _) = if rep == t then t else resolve rep
+      where
+        rep = P.rep sets t
+    check :: PExpr -> Type -> TyperMonad Type
+    check expr (TVar v) =
+      throwError $ UnresolvedVariable v expr
+    check expr x = pure x
+
 loadPredefined :: TyperMonad ()
 loadPredefined = mapM_ (uncurry addTypedFun) predefinedTypes
 
@@ -184,7 +198,7 @@ typeDefs = mapM typeFun
       return (PFun fn body')
 
 runTypeProg :: PProg -> (Either Error [PFun], TypeState)
-runTypeProg prog = runState (runExceptT (prepare >> typeDefs (funs prog))) initState
+runTypeProg prog = runState (runExceptT (prepare >> typeDefs (funs prog) >>= resolveVars)) initState
   where
     prepare = loadPredefined >> addDefBinds >> addConstructors
     addDefBinds :: TyperMonad ()
@@ -204,6 +218,12 @@ runTypeProg prog = runState (runExceptT (prepare >> typeDefs (funs prog))) initS
         addConstr typeId (PConstr constrId types) = do
           let t = foldr TFun (TData typeId) types
           addTypedFun constrId t
+    resolveVars :: [PFun] -> TyperMonad [PFun]
+    resolveVars fns = do
+      ts <- use typeSets
+      mapM (\(PFun id expr) -> PFun id <$> resolveTypeVars ts expr) fns
+
+-- return $ map (\(PFun id expr) -> PFun id (resolveTypeVars ts expr)) fns
 
 printTypedExpr :: PExpr -> TypeSets -> String
 printTypedExpr e sets = process e 0
@@ -251,11 +271,4 @@ printTypedExpr e sets = process e 0
     ind :: Int -> String -> String
     ind i s = concat (replicate i "  ") ++ s
 
-    showType = show . replaceVars . getType
-    replaceVars :: Type -> Type
-    replaceVars t@(TBase _) = t
-    replaceVars t@(TData _) = t
-    replaceVars (TFun a b) = TFun (replaceVars a) (replaceVars b)
-    replaceVars t@(TVar _) = if rep == t then t else replaceVars rep
-      where
-        rep = P.rep sets t
+    showType = show . getType
