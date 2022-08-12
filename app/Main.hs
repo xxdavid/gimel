@@ -4,6 +4,7 @@ import Common
 import Control.Lens.Getter ((^.))
 import Data.Char (isSpace)
 import Data.List (dropWhileEnd)
+import GMachine
 import Lexer
 import Parser
 import Typer
@@ -17,7 +18,10 @@ main = do
   let typeRes = runTypeProg prog
   print typeRes
   case typeRes of
-    (Right t, state) -> mapM_ (printDef $ state ^. typeSets) t
+    (Right typedFuns, state) -> do
+      mapM_ (printDef $ state ^. typeSets) typedFuns
+      let instrs = compileProg prog
+      print instrs
     _ -> pure ()
   where
     printDef sets (PFun fn body) = putStrLn $ fn ++ " = " ++ printTypedExpr body sets
