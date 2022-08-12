@@ -1,12 +1,13 @@
 {
-module Parser(parse) where
+module Parser(parse, parseExpr) where
 
 import Common
 import Lexer
 import Data.Maybe(catMaybes)
 }
 
-%name parse
+%name parse Prog
+%name parseExpr TopExpr
 %tokentype { Token }
 %error { parseError }
 

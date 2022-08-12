@@ -22,3 +22,12 @@ main = do
   where
     printDef sets (PFun fn body) = putStrLn $ fn ++ " = " ++ printTypedExpr body sets
     trim = dropWhileEnd isSpace . dropWhile isSpace
+
+constructExpr :: String -> PExpr
+constructExpr = parseExpr . alexScanTokens
+
+processExpr :: String -> PExpr
+processExpr = unpack . runTypeExpr . constructExpr
+  where
+    unpack (Right x, _) = x
+    unpack (Left err, _) = error $ show err
