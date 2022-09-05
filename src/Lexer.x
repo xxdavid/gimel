@@ -8,6 +8,7 @@ $digit = 0-9
 $lower = [a-z]
 $upper = [A-Z]
 $letter = [a-zA-Z]
+$enhLetter = [a-zA-Z0-9_\']
 
 tokens :-
     \=                      { \_ s -> LAssign }
@@ -24,8 +25,8 @@ tokens :-
     do                      { \_ s -> LDo }
     end                     { \_ s -> LEnd }
     case                    { \_ s -> LCase }
-    $lower$letter*          { \_ s -> LId s }
-    $upper$letter*          { \_ s -> LUpperId s }
+    $lower$enhLetter*       { \_ s -> LId s }
+    $upper$enhLetter*       { \_ s -> LUpperId s }
     $digit+                 { \_ s -> LNum (read s) }
     \n+                     { \_ s -> LNewLine }
     $white                  ;
