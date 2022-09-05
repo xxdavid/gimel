@@ -4,7 +4,6 @@ import Codegen
 import Common
 import Control.Lens.Getter ((^.))
 import Data.Char (isSpace)
-import Data.List (dropWhileEnd)
 import GMachine
 import Lexer
 import Parser
@@ -12,7 +11,7 @@ import Typer
 
 main = do
   s <- getContents
-  let tokens = alexScanTokens (trim s)
+  let tokens = tokenize s
   -- print tokens
   let prog = parse tokens
   -- print prog
@@ -28,10 +27,9 @@ main = do
     other -> print other
   where
     printDef sets (PFun fn body) = putStrLn $ fn ++ " = " ++ printTypedExpr body sets
-    trim = dropWhileEnd isSpace . dropWhile isSpace
 
 constructExpr :: String -> PExpr
-constructExpr = parseExpr . alexScanTokens
+constructExpr = parseExpr . tokenize
 
 processExpr :: String -> PExpr
 processExpr = unpack . runTypeExpr . constructExpr

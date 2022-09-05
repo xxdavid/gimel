@@ -1,5 +1,6 @@
 {
-module Lexer (alexScanTokens, Token(..)) where
+module Lexer (tokenize, Token(..)) where
+import Data.List (dropWhileEnd)
 }
 
 %wrapper "posn"
@@ -53,4 +54,9 @@ data Token
     | LCase
     | LNewLine
     deriving (Eq, Show)
+
+tokenize = trim . alexScanTokens
+    where
+        trim = dropWhileEnd isNl . dropWhile isNl
+        isNl token = token == LNewLine
 }
