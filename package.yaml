@@ -6,6 +6,8 @@ license: BSD3
 extra-source-files:
   - README.md
 
+data-files: "assets/stdlib.gm"
+
 dependencies:
   - base >= 4.7 && < 5
   - array
@@ -19,7 +21,6 @@ dependencies:
   - unix
   - directory
   - process
-  # - llvm-hs
 
 library:
   source-dirs: src

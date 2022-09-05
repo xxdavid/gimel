@@ -19,6 +19,11 @@ import Data.Maybe(catMaybes)
     '-'           { LMinus }
     '*'           { LStar }
     '/'           { LSlash }
+    '=='          { LEqual }
+    '>'           { LGreater }
+    '<'           { LLower }
+    '>='          { LGreaterEq }
+    '<='          { LLowerEq }
     '\\'          { LBackslash }
     '('           { LLParen }
     ')'           { LRParen }
@@ -33,6 +38,7 @@ import Data.Maybe(catMaybes)
     num           { LNum $$ }
     nl            { LNewLine }
 
+%nonassoc '==' '>' '<' '>=' '<='
 %left '+' '-'
 %left '*' '/'
 
@@ -64,6 +70,11 @@ TopExpr : TopExpr '+' TopExpr           { PApp ann (PApp ann (PVar ann "+") $1) 
         | TopExpr '-' TopExpr           { PApp ann (PApp ann (PVar ann "-") $1) $3 }
         | TopExpr '*' TopExpr           { PApp ann (PApp ann (PVar ann "*") $1) $3 }
         | TopExpr '/' TopExpr           { PApp ann (PApp ann (PVar ann "/") $1) $3 }
+        | TopExpr '==' TopExpr           { PApp ann (PApp ann (PVar ann "==") $1) $3 }
+        | TopExpr '>' TopExpr           { PApp ann (PApp ann (PVar ann ">") $1) $3 }
+        | TopExpr '<' TopExpr           { PApp ann (PApp ann (PVar ann "<") $1) $3 }
+        | TopExpr '>=' TopExpr           { PApp ann (PApp ann (PVar ann ">=") $1) $3 }
+        | TopExpr '<=' TopExpr           { PApp ann (PApp ann (PVar ann "<=") $1) $3 }
         | Expr                          { $1 }
         | Case                          { $1 }
 

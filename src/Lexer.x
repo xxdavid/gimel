@@ -17,6 +17,11 @@ tokens :-
     \-                      { \_ s -> LMinus }
     \*                      { \_ s -> LStar }
     \/                      { \_ s -> LSlash }
+    \=\=                    { \_ s -> LEqual }
+    \>                      { \_ s -> LGreater }
+    \<                      { \_ s -> LLower }
+    \>=                     { \_ s -> LGreaterEq }
+    \<=                     { \_ s -> LLowerEq }
     \\                      { \_ s -> LBackslash }
     \(                      { \_ s -> LLParen }
     \)                      { \_ s -> LRParen }
@@ -42,6 +47,11 @@ data Token
     | LMinus
     | LStar
     | LSlash
+    | LEqual
+    | LGreater
+    | LLower
+    | LGreaterEq
+    | LLowerEq
     | LBackslash
     | LAssign
     | LLParen

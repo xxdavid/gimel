@@ -13,6 +13,8 @@ license-file:   LICENSE
 build-type:     Simple
 extra-source-files:
     README.md
+data-files:
+    assets/stdlib.gm
 
 source-repository head
   type: git
@@ -25,8 +27,10 @@ library
       GMachine
       Lexer
       LlvmCommon
+      Native
       Parser
       Runtime
+      Stdlib
       Typer
   other-modules:
       Paths_gimel

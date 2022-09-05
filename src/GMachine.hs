@@ -9,7 +9,6 @@ import Data.List (elemIndex)
 import qualified Data.Map.Lazy as Map
 import Data.Maybe (fromJust)
 import qualified Data.Set as Set
-import Typer (predefinedTypes)
 
 type ConstrTag = Int
 

@@ -7,11 +7,14 @@ import Data.Char (isSpace)
 import GMachine
 import Lexer
 import Parser
+import Stdlib
 import Typer
 
 main = do
   s <- getContents
-  let tokens = tokenize s
+  stdlib <- readStdlib
+  let programText = s ++ stdlib
+  let tokens = tokenize programText
   -- print tokens
   let prog = parse tokens
   -- print prog

@@ -25,11 +25,9 @@ import LLVM.IRBuilder.Module
 import LLVM.IRBuilder.Monad
 import LLVM.Pretty (ppllvm)
 import LlvmCommon
+import Native
 import qualified Runtime as R
-import System.Directory
-  ( removePathForcibly,
-    withCurrentDirectory,
-  )
+import System.Directory (removePathForcibly, withCurrentDirectory)
 import System.IO (hClose)
 import System.Posix.Temp (mkdtemp, mkstemps)
 import System.Process (callProcess)
@@ -47,19 +45,8 @@ type FunArities = Map.Map Id Int
 funSymbolName :: Id -> Name
 funSymbolName name = fromString $ "f_" ++ name
 
-buildFunOperands :: PProg -> FunOperands
-buildFunOperands prog = funOperands `Map.union` dataOperands
-  where
-    funOperands = foldr insertFun Map.empty (funs prog)
-    insertFun (PFun name _) = insertOp name
-    dataOperands = foldr insertData Map.empty (datas prog)
-    insertData (PData _ constrs) map = foldr insertConstr map constrs
-    insertConstr (PConstr name _) = insertOp name
-    insertOp name = Map.insert name (funOperand (fromString name) [stackType] stackType)
-    stackType = ptr i32
-
 buildFunArities :: PProg -> FunArities
-buildFunArities prog = funArities `Map.union` dataArities `Map.union` nativeBinOpArities
+buildFunArities prog = funArities `Map.union` dataArities `Map.union` nativeArities
   where
     funArities = foldr insertFun Map.empty (funs prog)
     insertFun (PFun name expr) = Map.insert name arity
@@ -69,7 +56,10 @@ buildFunArities prog = funArities `Map.union` dataArities `Map.union` nativeBinO
     dataArities = foldr insertData Map.empty (datas prog)
     insertData (PData _ constrs) map = foldr insertConstr map constrs
     insertConstr (PConstr name params) = Map.insert name (length params)
-    nativeBinOpArities = foldr (\(name, _) -> Map.insert name 2) Map.empty nativeBinOps
+    nativeArities = foldr insertNative Map.empty nativeFuns
+    insertNative (NativeFun name ty _) = Map.insert name (countArgs ty)
+    countArgs (TFun _ next) = 1 + countArgs next
+    countArgs _ = 0
 
 codegenInstr :: (MonadIRBuilder m, MonadFix m) => Operand -> FunArities -> Instr -> m Operand
 codegenInstr s _ (PushInt n) = callRt R.pushInt [s, int32 (toInteger n)]
@@ -115,10 +105,11 @@ codegenBranch s fa dTag end (tag, instrs) = mdo
 codegenInstrs :: (MonadIRBuilder m, MonadFix m) => Operand -> FunArities -> [Instr] -> m Operand
 codegenInstrs stack fa = foldl (\sm i -> sm >>= (\s -> codegenInstr s fa i)) (pure stack)
 
-nativeBinOps = [("+", add), ("-", sub), ("*", mul), ("/", sdiv)]
+codegenNativeFun (NativeFun name _ (ArithOp op)) = codegenNativeArithOp name op
+codegenNativeFun (NativeFun name _ (CompOp pred)) = codegenNativeCompOp name pred
 
-codegenNativeBinOp id op = do
-  function (funSymbolName id) [(R.stackT, "stack")] R.stackT $ \[s] -> do
+codegenNativeBinaryIntFunction name innerInstrs = do
+  function (funSymbolName name) [(R.stackT, "stack")] R.stackT $ \[s] -> do
     entry <- block `named` "entry"
 
     l <- callRt R.lookup [s, int32 0]
@@ -129,12 +120,32 @@ codegenNativeBinOp id op = do
     re <- callRt R.evalNode [r]
     rInt <- callRt R.getInt [re]
 
-    res <- op lInt rInt
-    s <- callRt R.pushInt [s, res]
+    s <- innerInstrs s lInt rInt
 
     s <- callRt R.update [s, int32 2]
     s <- callRt R.pop [s, int32 2]
     ret s
+
+codegenNativeArithOp name op =
+  codegenNativeBinaryIntFunction name $ \s lInt rInt -> do
+    res <- op lInt rInt
+    callRt R.pushInt [s, res]
+
+codegenNativeCompOp name pred =
+  codegenNativeBinaryIntFunction name $ \s lInt rInt -> mdo
+    res <- icmp pred lInt rInt
+    condBr res true false
+
+    true <- block
+    sTrue <- callRt R.pack [s, int32' 0, int32' 0]
+    br end
+
+    false <- block
+    sFalse <- callRt R.pack [s, int32' 1, int32' 0]
+    br end
+
+    end <- block
+    phi [(sTrue, true), (sFalse, false)]
 
 codegenCompiledFun :: CompiledFun -> FunArities -> ModuleBuilder Operand
 codegenCompiledFun (CompiledFun name instrs) fa = do
@@ -148,7 +159,7 @@ codegenProgram prog cFuns = buildModule "mainModule" $ do
   mapM_ (\(FunDecl name argtys retty) -> extern name argtys retty) R.all
   let fa = buildFunArities prog
   mapM_ (\cFun -> codegenCompiledFun cFun fa) cFuns
-  mapM_ (uncurry codegenNativeBinOp) nativeBinOps
+  mapM_ codegenNativeFun nativeFuns
 
   function "main" [] VoidType $ \[] -> do
     entry <- block `named` "entry"

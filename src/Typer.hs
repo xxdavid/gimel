@@ -12,6 +12,7 @@ import Data.Maybe
 import qualified Data.Partition as P
 import qualified Data.Set as Set
 import Debug.Trace
+import Native
 import Parser
 
 type LastVar = TypeVar
@@ -136,7 +137,7 @@ unify a b@(TVar _) = unify b a
 unify a b = throwError $ MatchError (a, b)
 
 runTypeExpr :: PExpr -> (Either Error PExpr, TypeState)
-runTypeExpr expr = runState (runExceptT (loadPredefined >> typeExpr expr)) initState
+runTypeExpr expr = runState (runExceptT (loadNativeFuns >> typeExpr expr)) initState
 
 initState = TypeState (TV "") P.empty Map.empty
 
@@ -168,16 +169,10 @@ resolveTypeVars sets = postwalkM processNode
       throwError $ UnresolvedVariable v expr
     check expr x = pure x
 
-loadPredefined :: TyperMonad ()
-loadPredefined = mapM_ (uncurry addTypedFun) predefinedTypes
-
-predefinedTypes :: [(Id, Type)]
-predefinedTypes =
-  [ ("+", TFun (TBase TInt) (TFun (TBase TInt) (TBase TInt))),
-    ("-", TFun (TBase TInt) (TFun (TBase TInt) (TBase TInt))),
-    ("*", TFun (TBase TInt) (TFun (TBase TInt) (TBase TInt))),
-    ("/", TFun (TBase TInt) (TFun (TBase TInt) (TBase TInt)))
-  ]
+loadNativeFuns :: TyperMonad ()
+loadNativeFuns = mapM_ addNativeFun nativeFuns
+  where
+    addNativeFun (NativeFun name ty _) = addTypedFun name ty
 
 typeDefs :: [PFun] -> TyperMonad [PFun]
 typeDefs = mapM typeFun
@@ -194,7 +189,7 @@ typeDefs = mapM typeFun
 runTypeProg :: PProg -> (Either Error [PFun], TypeState)
 runTypeProg prog = runState (runExceptT (prepare >> typeDefs (funs prog) >>= resolveVars)) initState
   where
-    prepare = loadPredefined >> addDefBinds >> addConstructors
+    prepare = loadNativeFuns >> addDefBinds >> addConstructors
     addDefBinds :: TyperMonad ()
     addDefBinds = mapM_ addFun $ funs prog
       where
