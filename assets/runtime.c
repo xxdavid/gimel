@@ -114,6 +114,8 @@ stack *slide(stack *stack, int n)
     return push(stack, node);
 }
 
+/* SUPPORT */
+
 void print_node(node *node)
 {
     switch (node->tag)
@@ -166,6 +168,17 @@ void print_stack(stack *stack, char *label)
     }
 
     printf("\n");
+}
+
+void print_stack_nolabel(stack *stack)
+{
+    print_stack(stack, "STACK");
+}
+
+void runtime_error(stack *stack)
+{
+    printf("Runtime error!\n");
+    print_stack(stack, "Current stack");
 }
 
 /* INSTRUCTIONS */
@@ -261,7 +274,7 @@ stack *unwind(stack *stack)
 {
     while (1)
     {
-        print_stack(stack, "UNWIND");
+        // print_stack(stack, "UNWIND");
         node *node = peek(stack);
         switch (node->tag)
         {
@@ -294,9 +307,9 @@ stack *unwind(stack *stack)
                 struct node *right = app->napp.right;
                 stack = push(stack, right);
             }
-            print_stack(stack, "BEFORE FUNCTION EXECUTION");
+            // print_stack(stack, "BEFORE FUNCTION EXECUTION");
             stack = node->nglobal.function(stack);
-            print_stack(stack, "AFTER FUNCTION EXECUTION");
+            // print_stack(stack, "AFTER FUNCTION EXECUTION");
             break;
         }
         case N_IND:
@@ -307,7 +320,7 @@ stack *unwind(stack *stack)
             break;
         }
         default:
-            print_stack(stack, "RETURNING");
+            // print_stack(stack, "RETURNING");
             return stack;
         }
     }
@@ -319,7 +332,7 @@ stack *eval(stack *old_stack)
     old_stack = pop(old_stack, 1);
     stack *new_stack = empty_stack();
     new_stack = push(new_stack, node);
-    print_stack(new_stack, "NEW_STACK");
+    // print_stack(new_stack, "NEW_STACK");
     new_stack = unwind(new_stack);
     struct node *evaluated_node = peek(new_stack);
     old_stack = push(old_stack, evaluated_node);
@@ -330,180 +343,22 @@ node *eval_node(node *node)
 {
     stack *new_stack = empty_stack();
     new_stack = push(new_stack, node);
-    print_stack(new_stack, "NEW_STACK");
+    // print_stack(new_stack, "NEW_STACK");
     new_stack = unwind(new_stack);
     struct node *evaluated_node = peek(new_stack);
     return evaluated_node;
 }
 
-/* MAIN */
+/* GETTERS */
 
-stack *f_add(stack *stack)
+int get_int(node *node)
 {
-    printf("EVALUATING f_add\n");
-    print_stack(stack, "F_ADD");
-
-    node *left = eval_node(lookup(stack, 0));
-    node *right = eval_node(lookup(stack, 1));
-
-    assert(left->tag == N_INT);
-    assert(right->tag == N_INT);
-    int sum = left->nint + right->nint;
-    node *sum_node = new_node();
-    sum_node->tag = N_INT;
-    sum_node->nint = sum;
-
-    stack = push(stack, sum_node);
-    stack = update(stack, 2);
-    stack = pop(stack, 2);
-    return stack;
+    assert(node->tag == N_INT);
+    return node->nint;
 }
 
-stack *f_id(stack *stack)
+int get_constr_tag(node *node)
 {
-    printf("EVALUATING id\n");
-    stack = push_instr(stack, 0);
-    stack = update(stack, 1);
-    stack = pop(stack, 1);
-    return stack;
-}
-stack *f_twice(stack *stack)
-{
-
-    stack = push_instr(stack, 0);
-    stack = push_instr(stack, 1);
-    stack = push_global(stack, 2, f_add);
-    stack = mk_app(stack);
-    stack = mk_app(stack);
-    stack = update(stack, 1);
-    stack = pop(stack, 1);
-    return stack;
-}
-
-stack *f_fst(stack *stack)
-{
-    stack = push_instr(stack, 0);
-    stack = update(stack, 2);
-    stack = pop(stack, 2);
-    return stack;
-}
-
-stack *f_cons(stack *stack)
-{
-    stack = pack(stack, 1, 2);
-    // stack = push_instr(stack, 0);
-    stack = update(stack, 0);
-    stack = pop(stack, 0);
-    return stack;
-}
-
-stack *f_nil(stack *stack)
-{
-    stack = pack(stack, 0, 0);
-    // stack = push_instr(stack, 0);
-    stack = update(stack, 0);
-    stack = pop(stack, 0);
-    return stack;
-}
-
-stack *f_five(stack *stack)
-{
-    printf("EVALUATING five\n");
-    stack = push_int(stack, 2);
-    stack = push_int(stack, 3);
-    stack = push_global(stack, 2, f_add);
-    stack = mk_app(stack);
-    stack = mk_app(stack);
-
-    print_stack(stack, "BEFORE FIVE UPDATE");
-    stack = update(stack, 0);
-    print_stack(stack, "AFTER FIVE UPDATE");
-    stack = pop(stack, 0);
-    return stack;
-}
-
-stack *f_addOne(stack *stack)
-{
-    stack = push_int(stack, 1);
-    stack = push_global(stack, 2, f_add);
-    stack = mk_app(stack);
-    stack = update(stack, 1);
-    return pop(stack, 1);
-}
-
-stack *f_main(stack *stack)
-{
-    // id 3
-    // stack = push_int(stack, 3);
-    // stack = push_global(stack, 1, f_id);
-    // stack = mk_app(stack);
-
-    // Nil
-    // stack = push_global(stack, 0, f_nil);
-
-    // Cons 42 Nil
-    // stack = push_global(stack, 0, f_nil);
-    // stack = push_int(stack, 42);
-    // stack = push_global(stack, 2, f_cons);
-    // stack = mk_app(stack);
-    // stack = mk_app(stack);
-
-    // five + five
-    // stack = push_global(stack, 0, f_five);
-    // // stack = push_global(stack, 0, f_five);
-    // stack = push_instr(stack, 0);
-    // stack = push_global(stack, 2, f_add);
-    // stack = mk_app(stack);
-    // stack = mk_app(stack);
-
-    // twice five
-    // stack = push_global(stack, 0, f_five);
-    // stack = push_global(stack, 1, f_twice);
-    // stack = mk_app(stack);
-
-    // twice (id 5)
-    // stack = push_int(stack, 5);
-    // stack = push_global(stack, 1, f_id);
-    // stack = mk_app(stack);
-    // stack = push_global(stack, 1, f_twice);
-    // stack = mk_app(stack);
-
-    // addOne 4 (does not work)
-    // stack = push_int(stack, 4);
-    // stack = push_global(stack, 1, f_addOne);
-    // stack = mk_app(stack);
-
-    // fst (1 + 2 + 30) 99
-    stack = push_int(stack, 99);
-    stack = push_int(stack, 30);
-    stack = push_int(stack, 2);
-    stack = push_int(stack, 1);
-    stack = push_global(stack, 2, f_add);
-    stack = mk_app(stack);
-    stack = mk_app(stack);
-    stack = push_global(stack, 2, f_add);
-    stack = mk_app(stack);
-    stack = mk_app(stack);
-    stack = push_global(stack, 2, f_fst);
-    stack = mk_app(stack);
-    stack = mk_app(stack);
-
-    print_stack(stack, "MAIN BEFORE UPDATING");
-    stack = update(stack, 0);
-    stack = pop(stack, 0);
-    return stack;
-}
-
-int main()
-{
-    stack *stack = empty_stack();
-    stack = push_global(stack, 0, f_main);
-    print_stack(stack, "INIT");
-
-    // stack = eval(stack);
-    stack = unwind(stack);
-
-    print_stack(stack, "FINAL");
-
-    return 0;
+    assert(node->tag == N_DATA);
+    return node->ndata.constructor;
 }

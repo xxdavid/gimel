@@ -33,6 +33,8 @@ type StackEnv = [StackItem]
 
 type TagMap = Map.Map Id ConstrTag
 
+data CompiledFun = CompiledFun Id [Instr] deriving (Show)
+
 compileExpr :: PExpr -> TagMap -> StackEnv -> [Instr]
 compileExpr (PNum _ n) _ _ = [PushInt n]
 compileExpr (PApp _ a b) t e = compileExpr b t e ++ compileExpr a t (SOther : e) ++ [MkApp]
@@ -53,16 +55,11 @@ compileExpr (PCase _ m cls) tagMap env = compileExpr m tagMap env ++ [Eval, Jump
         Just tag = Map.lookup constr tagMap
 compileExpr (PAbs {}) _ _ = error "Lambdas will be forbidden soon."
 
-compileFun :: PFun -> TagMap -> (Id, [Instr])
-compileFun (PFun name expr) tagMap = (name, instrs)
+compileFun :: PFun -> TagMap -> CompiledFun
+compileFun (PFun name expr) tagMap = CompiledFun name instrs
   where
     instrs = compileExpr innerExpr tagMap stackEnv ++ [Update arity, Pop arity]
-    convertLambdas :: PExpr -> ([Id], PExpr)
-    convertLambdas (PAbs _ x body) = (x : nextParams, body')
-      where
-        (nextParams, body') = convertLambdas body
-    convertLambdas e = ([], e)
-    (params, innerExpr) = convertLambdas expr
+    (params, innerExpr) = lambdasToParams expr
     arity = length params
     stackEnv = map SVar params
 
@@ -72,15 +69,15 @@ tagConstructors = foldr processData Map.empty
     processData (PData _ constrs) mapping = foldr processConstr mapping (zip [0 ..] constrs)
     processConstr (tag, PConstr constr _) = Map.insert constr tag
 
-compileConstr :: ConstrTag -> PConstr -> (Id, [Instr])
-compileConstr tag (PConstr constr params) = (constr, instrs)
+compileConstr :: ConstrTag -> PConstr -> CompiledFun
+compileConstr tag (PConstr constr params) = CompiledFun constr instrs
   where
-    instrs = [Pack tag (length params), Update 0, Pop 1]
+    instrs = [Pack tag (length params), Update 0]
 
-compileData :: PData -> [(Id, [Instr])]
+compileData :: PData -> [CompiledFun]
 compileData (PData _ constrs) = zipWith compileConstr [0 ..] constrs
 
-compileProg :: PProg -> [(Id, [Instr])]
+compileProg :: PProg -> [CompiledFun]
 compileProg prog = funInstrs ++ dataInstrs
   where
     funInstrs = map (flip compileFun tagMap) (funs prog)

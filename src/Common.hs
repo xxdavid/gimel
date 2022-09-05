@@ -13,9 +13,6 @@ data PFun = PFun Id PExpr
 data PData = PData Id [PConstr]
   deriving (Eq, Show)
 
-data PDef = PDFun PFun | PDData PData
-  deriving (Eq, Show)
-
 data PProg = PProg {funs :: [PFun], datas :: [PData]}
   deriving (Eq, Show)
 
@@ -57,6 +54,12 @@ postwalkM f (PCase as x cls) = do
     walkClause (PClause ptn e) = do
       e' <- postwalkM f e
       return $ PClause ptn e'
+
+lambdasToParams :: PExpr -> ([Id], PExpr)
+lambdasToParams (PAbs _ x body) = (x : nextParams, body')
+  where
+    (nextParams, body') = lambdasToParams body
+lambdasToParams e = ([], e)
 
 -- * Types
 

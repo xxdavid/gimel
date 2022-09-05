@@ -13,6 +13,13 @@ dependencies:
   - lens
   - containers
   - data-partition
+  - llvm-hs-pure
+  - llvm-hs-pretty
+  - text
+  - unix
+  - directory
+  - process
+  # - llvm-hs
 
 library:
   source-dirs: src

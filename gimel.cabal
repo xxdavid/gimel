@@ -20,10 +20,13 @@ source-repository head
 
 library
   exposed-modules:
+      Codegen
       Common
       GMachine
       Lexer
+      LlvmCommon
       Parser
+      Runtime
       Typer
   other-modules:
       Paths_gimel
@@ -34,8 +37,14 @@ library
     , base >=4.7 && <5
     , containers
     , data-partition
+    , directory
     , lens
+    , llvm-hs-pretty
+    , llvm-hs-pure
     , mtl
+    , process
+    , text
+    , unix
   default-language: Haskell2010
 
 executable gimel-exe
@@ -48,9 +57,15 @@ executable gimel-exe
     , base >=4.7 && <5
     , containers
     , data-partition
+    , directory
     , gimel
     , lens
+    , llvm-hs-pretty
+    , llvm-hs-pure
     , mtl
+    , process
+    , text
+    , unix
   default-language: Haskell2010
 
 test-suite gimel-test
@@ -66,7 +81,13 @@ test-suite gimel-test
     , base >=4.7 && <5
     , containers
     , data-partition
+    , directory
     , gimel
     , lens
+    , llvm-hs-pretty
+    , llvm-hs-pure
     , mtl
+    , process
+    , text
+    , unix
   default-language: Haskell2010

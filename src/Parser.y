@@ -125,6 +125,9 @@ Nls     : nl                            { () }
         | Nls nl                        { () }
 
 {
+data PDef = PDFun PFun | PDData PData
+  deriving (Eq, Show)
+
 parseError :: [Token] -> a
 parseError _ = error "Parse error"
 
@@ -144,5 +147,4 @@ classifyDefs defs = PProg (catMaybes $ map getFun defs) (catMaybes $ map getData
         getData _ = Nothing
 
 ann = emptyAnn
-
 }

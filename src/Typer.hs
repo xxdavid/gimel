@@ -176,8 +176,7 @@ predefinedTypes =
   [ ("+", TFun (TBase TInt) (TFun (TBase TInt) (TBase TInt))),
     ("-", TFun (TBase TInt) (TFun (TBase TInt) (TBase TInt))),
     ("*", TFun (TBase TInt) (TFun (TBase TInt) (TBase TInt))),
-    ("/", TFun (TBase TInt) (TFun (TBase TInt) (TBase TInt))),
-    ("succ", TFun (TBase TInt) (TBase TInt))
+    ("/", TFun (TBase TInt) (TFun (TBase TInt) (TBase TInt)))
   ]
 
 typeDefs :: [PFun] -> TyperMonad [PFun]

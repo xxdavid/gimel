@@ -44,6 +44,9 @@ packages:
 
 extra-deps:
   - data-partition-0.3.0.0@sha256:f48fc331e8165862d8dd4eabf7c7891d1a2fa02f9017a4246d6aa24f503da37d,706
+  - github: rumkeller/llvm-hs-pretty
+    commit: 9492ebdd92985abb6c95e8479363a7f04a011dea
+  - prettyprinter-1.5.1@sha256:fca87c3e2611d3499a0341a59857e9b424a23f31646e4737d535a18582284f96,5375
 # Override default flag values for local packages and extra-deps
 # flags: {}
 

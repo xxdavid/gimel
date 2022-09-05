@@ -1,5 +1,6 @@
 module Main where
 
+import Codegen
 import Common
 import Control.Lens.Getter ((^.))
 import Data.Char (isSpace)
@@ -12,17 +13,19 @@ import Typer
 main = do
   s <- getContents
   let tokens = alexScanTokens (trim s)
-  print tokens
+  -- print tokens
   let prog = parse tokens
-  print prog
+  -- print prog
   let typeRes = runTypeProg prog
-  print typeRes
+  -- print typeRes
   case typeRes of
     (Right typedFuns, state) -> do
-      mapM_ (printDef $ state ^. typeSets) typedFuns
-      let instrs = compileProg prog
-      print instrs
-    _ -> pure ()
+      -- mapM_ (printDef $ state ^. typeSets) typedFuns
+      let compiledFuns = compileProg prog
+      compileToBinary prog compiledFuns "program"
+      -- print compiledFuns
+      pure ()
+    other -> print other
   where
     printDef sets (PFun fn body) = putStrLn $ fn ++ " = " ++ printTypedExpr body sets
     trim = dropWhileEnd isSpace . dropWhile isSpace

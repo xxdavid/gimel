@@ -11,6 +11,24 @@ packages:
     hackage: data-partition-0.3.0.0@sha256:f48fc331e8165862d8dd4eabf7c7891d1a2fa02f9017a4246d6aa24f503da37d,706
   original:
     hackage: data-partition-0.3.0.0@sha256:f48fc331e8165862d8dd4eabf7c7891d1a2fa02f9017a4246d6aa24f503da37d,706
+- completed:
+    sha256: 5712af203f66263696fe233e367204830cb91d8bda0a34d1d38a238720febfa8
+    name: llvm-hs-pretty
+    size: 44973
+    url: https://github.com/rumkeller/llvm-hs-pretty/archive/9492ebdd92985abb6c95e8479363a7f04a011dea.tar.gz
+    pantry-tree:
+      sha256: 9419fbe1a1ae6f8491481b03df6c3d054f39e1fc40459b5193765ec1dc6ce020
+      size: 5223
+    version: 0.9.0.0
+  original:
+    url: https://github.com/rumkeller/llvm-hs-pretty/archive/9492ebdd92985abb6c95e8479363a7f04a011dea.tar.gz
+- completed:
+    pantry-tree:
+      sha256: 86fd583112db41bac5ac9ecf258ec402ad615253e9c5eabc56ec127bfb94c096
+      size: 2106
+    hackage: prettyprinter-1.5.1@sha256:fca87c3e2611d3499a0341a59857e9b424a23f31646e4737d535a18582284f96,5375
+  original:
+    hackage: prettyprinter-1.5.1@sha256:fca87c3e2611d3499a0341a59857e9b424a23f31646e4737d535a18582284f96,5375
 snapshots:
 - completed:
     sha256: a27a5761890ade44d7dd21a5f5f93c87e60b9c063655fff835d69dd1071474f0
