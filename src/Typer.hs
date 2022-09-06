@@ -7,6 +7,7 @@ import Control.Lens
 import Control.Monad
 import Control.Monad.Except
 import Control.Monad.State
+import Data.Foldable (find)
 import qualified Data.Map.Lazy as Map
 import Data.Maybe
 import qualified Data.Partition as P
@@ -31,6 +32,8 @@ data Error
   | UndefinedConstructorError Id
   | BadConstructorPatternArity Id Int Int
   | UnresolvedVariable TypeVar PExpr
+  | MainMissing
+  | MainNotNullary
   deriving (Show)
 
 type TyperMonad a = ExceptT Error (State TypeState) a
@@ -186,10 +189,11 @@ typeDefs = mapM typeFun
       unify (TVar var) t
       return (PFun fn body')
 
-runTypeProg :: PProg -> (Either Error [PFun], TypeState)
-runTypeProg prog = runState (runExceptT (prepare >> typeDefs (funs prog) >>= resolveVars)) initState
+runTypeProg :: PProg -> (Either Error ([PFun], Type), TypeState)
+runTypeProg prog = runState (runExceptT (prepare >> execute)) initState
   where
     prepare = loadNativeFuns >> addDefBinds >> addConstructors
+    execute = typeDefs (funs prog) >>= resolveVars >>= attachMainType
     addDefBinds :: TyperMonad ()
     addDefBinds = mapM_ addFun $ funs prog
       where
@@ -211,6 +215,14 @@ runTypeProg prog = runState (runExceptT (prepare >> typeDefs (funs prog) >>= res
     resolveVars fns = do
       ts <- use typeSets
       mapM (\(PFun id expr) -> PFun id <$> resolveTypeVars ts expr) fns
+    attachMainType :: [PFun] -> TyperMonad ([PFun], Type)
+    attachMainType funs = case mainType of
+      Nothing -> throwError MainMissing
+      (Just (TFun _ _)) -> throwError MainNotNullary
+      (Just ty) -> pure (funs, ty)
+      where
+        mainFun = find (\(PFun id _) -> id == "main") funs
+        mainType = fmap (\(PFun _ expr) -> getType expr) mainFun
 
 -- return $ map (\(PFun id expr) -> PFun id (resolveTypeVars ts expr)) fns
 

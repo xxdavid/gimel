@@ -1,6 +1,5 @@
 module Common where
 
-import Data.Foldable (find)
 import Data.Functor.Identity
 
 type Id = String

@@ -21,7 +21,7 @@ main = do
   let typeRes = runTypeProg prog
   -- print typeRes
   case typeRes of
-    (Right typedFuns, state) -> do
+    (Right (typedFuns, mainType), state) -> do
       -- mapM_ (printDef $ state ^. typeSets) typedFuns
       let compiledFuns = compileProg prog
       compileToBinary prog compiledFuns "program"
