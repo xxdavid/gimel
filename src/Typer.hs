@@ -7,7 +7,7 @@ import Control.Lens
 import Control.Monad
 import Control.Monad.Except
 import Control.Monad.State
-import Data.Foldable (find)
+import Data.Foldable (any, find)
 import qualified Data.Map.Lazy as Map
 import Data.Maybe
 import qualified Data.Partition as P
@@ -22,7 +22,12 @@ type TypeSets = P.Partition Type
 
 type Bindings = Map.Map Id TypeVar
 
-data TypeState = TypeState {_lastVar :: LastVar, _typeSets :: TypeSets, _bindings :: Bindings}
+data TypeState = TypeState
+  { _lastVar :: LastVar,
+    _typeSets :: TypeSets,
+    _bindings :: Bindings,
+    _dataDefs :: [PData]
+  }
   deriving (Show)
 
 data Error
@@ -34,6 +39,7 @@ data Error
   | UnresolvedVariable TypeVar PExpr
   | MainMissing
   | MainNotNullary
+  | MissingClause PExpr
   deriving (Show)
 
 type TyperMonad a = ExceptT Error (State TypeState) a
@@ -71,8 +77,18 @@ typeExpr e@(PCase as x cls) = do
   let matchType = getType x'
   resType <- TVar <$> lift newVar
   cls' <- mapM (processClause matchType resType) cls
+  checkClausesCoverage matchType cls
   return $ putType (PCase as x' cls') resType
   where
+    checkClausesCoverage :: Type -> [PClause] -> TyperMonad ()
+    checkClausesCoverage matchType cls = do
+      ts <- use typeSets
+      let (TData tName) = P.rep ts matchType
+      dataTypes <- use dataDefs
+      let (Just (PData _ constrs)) = find (\(PData n _) -> n == tName) dataTypes
+      unless (all constrCovered constrs) $ throwError $ MissingClause e
+      where
+        constrCovered (PConstr cName _) = any (\(PClause (PPConstr n _) _) -> n == cName) cls
     processClause :: Type -> Type -> PClause -> TyperMonad PClause
     processClause matchT resT (PClause p@(PPVar v) body) = do
       tv <- lift newVar
@@ -142,7 +158,7 @@ unify a b = throwError $ MatchError (a, b)
 runTypeExpr :: PExpr -> (Either Error PExpr, TypeState)
 runTypeExpr expr = runState (runExceptT (loadNativeFuns >> typeExpr expr)) initState
 
-initState = TypeState (TV "") P.empty Map.empty
+initState = TypeState (TV "") P.empty Map.empty []
 
 checkForDuplicateBind :: Id -> TyperMonad ()
 checkForDuplicateBind id = do
@@ -192,7 +208,7 @@ typeDefs = mapM typeFun
 runTypeProg :: PProg -> (Either Error ([PFun], Type), TypeState)
 runTypeProg prog = runState (runExceptT (prepare >> execute)) initState
   where
-    prepare = loadNativeFuns >> addDefBinds >> addConstructors
+    prepare = loadNativeFuns >> addDefBinds >> addConstructors >> addDataDefs
     execute = typeDefs (funs prog) >>= resolveVars >>= attachMainType
     addDefBinds :: TyperMonad ()
     addDefBinds = mapM_ addFun $ funs prog
@@ -211,6 +227,8 @@ runTypeProg prog = runState (runExceptT (prepare >> execute)) initState
         addConstr typeId (PConstr constrId types) = do
           let t = foldr TFun (TData typeId) types
           addTypedFun constrId t
+    addDataDefs :: TyperMonad ()
+    addDataDefs = dataDefs .= datas prog
     resolveVars :: [PFun] -> TyperMonad [PFun]
     resolveVars fns = do
       ts <- use typeSets
