@@ -24,7 +24,7 @@ main = do
     (Right (typedFuns, mainType), state) -> do
       -- mapM_ (printDef $ state ^. typeSets) typedFuns
       let compiledFuns = compileProg prog
-      compileToBinary prog compiledFuns "program"
+      compileToBinary prog compiledFuns mainType "program"
       -- print compiledFuns
       pure ()
     other -> print other

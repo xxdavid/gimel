@@ -175,6 +175,38 @@ void print_stack_nolabel(stack *stack)
     print_stack(stack, "STACK");
 }
 
+void print_str(char *str)
+{
+    printf("%s", str);
+}
+
+void print_int_node(stack *stack)
+{
+    node *node = peek(stack);
+    assert(node->tag == N_INT);
+    printf("%d", node->nint);
+}
+
+void print_lparen()
+{
+    printf("(");
+}
+
+void print_rparen()
+{
+    printf(")");
+}
+
+void print_space()
+{
+    printf(" ");
+}
+
+void print_nl()
+{
+    printf("\n");
+}
+
 void runtime_error(stack *stack)
 {
     printf("Runtime error!\n");

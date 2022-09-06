@@ -8,6 +8,7 @@
 module Codegen where
 
 import Common
+import Control.Monad (void, when)
 import Control.Monad.Fix (MonadFix)
 import qualified Data.Map as Map
 import Data.String (fromString)
@@ -42,6 +43,10 @@ type FunOperands = Map.Map Id Operand
 
 type FunArities = Map.Map Id Int
 
+type FunBuilder = IRBuilderT ModuleBuilder
+
+type Stack = Operand
+
 funSymbolName :: Id -> Name
 funSymbolName name = fromString $ "f_" ++ name
 
@@ -61,7 +66,7 @@ buildFunArities prog = funArities `Map.union` dataArities `Map.union` nativeArit
     countArgs (TFun _ next) = 1 + countArgs next
     countArgs _ = 0
 
-codegenInstr :: (MonadIRBuilder m, MonadFix m) => Operand -> FunArities -> Instr -> m Operand
+codegenInstr :: Stack -> FunArities -> Instr -> FunBuilder Stack
 codegenInstr s _ (PushInt n) = callRt R.pushInt [s, int32 (toInteger n)]
 codegenInstr s _ MkApp = callRt R.mkApp [s]
 codegenInstr s fa (PushGlobal name) = callRt R.pushGlobal [s, arityOp, operand]
@@ -102,9 +107,10 @@ codegenBranch s fa dTag end (tag, instrs) = mdo
   next <- block
   pure (finalBodyStack, finalBodyBlock)
 
-codegenInstrs :: (MonadIRBuilder m, MonadFix m) => Operand -> FunArities -> [Instr] -> m Operand
+codegenInstrs :: Stack -> FunArities -> [Instr] -> FunBuilder Stack
 codegenInstrs stack fa = foldl (\sm i -> sm >>= (\s -> codegenInstr s fa i)) (pure stack)
 
+codegenNativeFun :: NativeFun -> ModuleBuilder Operand
 codegenNativeFun (NativeFun name _ (ArithOp op)) = codegenNativeArithOp name op
 codegenNativeFun (NativeFun name _ (CompOp pred)) = codegenNativeCompOp name pred
 
@@ -154,12 +160,73 @@ codegenCompiledFun (CompiledFun name instrs) fa = do
     s <- codegenInstrs s fa instrs
     ret s
 
-codegenProgram :: PProg -> [CompiledFun] -> Module
-codegenProgram prog cFuns = buildModule "mainModule" $ do
+codegenPrintResult :: Stack -> Common.Type -> FunBuilder Operand
+codegenPrintResult s (TBase baseType) = codegenPrintBase s baseType
+codegenPrintResult s (TData name) = codegenPrintData s name
+codegenPrintResult _ _ = error "Cannot print unknown type"
+
+codegenPrintBase :: Stack -> BaseType -> FunBuilder Operand
+codegenPrintBase s TInt = callRt R.printIntNode [s] >> callRt R.pop [s, int32 1]
+
+codegenPrintData :: Stack -> Id -> FunBuilder Operand
+codegenPrintData s name = call' (funOperand printerName [R.stackT] R.stackT) [s]
+  where
+    printerName = dataPrinterSymbolName name
+
+dataPrinterSymbolName :: Id -> Name
+dataPrinterSymbolName name = fromString $ "dprint_" ++ name
+
+codegenDataPrinter :: PData -> ModuleBuilder Operand
+codegenDataPrinter (PData tName constrs) = do
+  function (dataPrinterSymbolName tName) [(R.stackT, "stack")] R.stackT $ \[s] -> mdo
+    node <- callRt R.peek [s]
+    nTag <- callRt R.getConstrTag [node]
+
+    opts <- mapM (codegenDataPrinterBranch s nTag end) (zip [0 ..] constrs)
+
+    -- the last next block is unreachable (one of branches must match)
+    unreachable
+
+    end <- block
+    sFin <- phi opts
+    ret sFin
+
+codegenDataPrinterBranch s nTag end (cTag, PConstr cName params) = mdo
+  let arity = length params
+  let printParens = arity > 0
+
+  select <- icmp IP.EQ nTag (int32' cTag)
+  condBr select body next
+
+  body <- block
+
+  when printParens $ void $ callRt R.printLParen []
+  str <- globalStringPtr cName (Name (fromString cName))
+  callRt R.printStr [ConstantOperand str]
+
+  s' <- callRt R.split [s, int32' arity]
+
+  finalBodyStack <- foldl (\sm p -> sm >>= (\s -> codegenDataPrinterParam s p)) (pure s') params
+  finalBodyBlock <- currentBlock
+  when printParens $ void $ callRt R.printRParen []
+  br end
+
+  next <- block
+  pure (finalBodyStack, finalBodyBlock)
+
+codegenDataPrinterParam :: Stack -> Common.Type -> FunBuilder Stack
+codegenDataPrinterParam s ty = do
+  callRt R.printSpace []
+  s <- callRt R.eval [s]
+  codegenPrintResult s ty
+
+codegenProgram :: PProg -> [CompiledFun] -> Common.Type -> Module
+codegenProgram prog cFuns resType = buildModule "mainModule" $ do
   mapM_ (\(FunDecl name argtys retty) -> extern name argtys retty) R.all
   let fa = buildFunArities prog
   mapM_ (\cFun -> codegenCompiledFun cFun fa) cFuns
   mapM_ codegenNativeFun nativeFuns
+  mapM_ codegenDataPrinter (datas prog)
 
   function "main" [] VoidType $ \[] -> do
     entry <- block `named` "entry"
@@ -167,19 +234,21 @@ codegenProgram prog cFuns = buildModule "mainModule" $ do
     s <- callRt R.emptyStack []
     s <- codegenInstrs s fa [PushGlobal "main"]
     s <- callRt R.unwind [s]
-    callRt R.printStack [s]
+
+    codegenPrintResult s resType
+    callRt R.printNl []
 
     retVoid
 
 -- taken from https://blog.josephmorag.com/posts/mcc3/
-compileToBinary :: PProg -> [CompiledFun] -> FilePath -> IO ()
-compileToBinary prog cFuns outfile =
+compileToBinary :: PProg -> [CompiledFun] -> Common.Type -> FilePath -> IO ()
+compileToBinary prog cFuns resType outfile =
   bracket (mkdtemp "build") removePathForcibly $ \buildDir ->
     withCurrentDirectory buildDir $ do
       (llvm, llvmHandle) <- mkstemps "output" ".ll"
       let runtime = "../assets/runtime.c"
 
-      let llvmModule = codegenProgram prog cFuns
+      let llvmModule = codegenProgram prog cFuns resType
       let moduleText = ppllvm llvmModule
       Text.putStrLn moduleText
 

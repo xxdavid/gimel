@@ -3,7 +3,7 @@
 module Runtime where
 
 import LLVM.AST (Operand)
-import LLVM.AST.Type (Type (VoidType), i32, ptr)
+import LLVM.AST.Type (Type (VoidType), i32, i8, ptr)
 import LLVM.IRBuilder.Module (MonadModuleBuilder, extern)
 import LlvmCommon
 import Prelude hiding (lookup)
@@ -13,6 +13,9 @@ stackT = ptr i32
 
 nodeT :: Type
 nodeT = ptr i32
+
+strT :: Type
+strT = ptr i8
 
 pushInt = FunDecl "push_int" [stackT, i32] stackT
 
@@ -56,6 +59,18 @@ printNode = FunDecl "print_node" [nodeT] VoidType
 
 printStack = FunDecl "print_stack_nolabel" [stackT] VoidType
 
+printStr = FunDecl "print_str" [strT] VoidType
+
+printIntNode = FunDecl "print_int_node" [stackT] VoidType
+
+printLParen = FunDecl "print_lparen" [] VoidType
+
+printRParen = FunDecl "print_rparen" [] VoidType
+
+printSpace = FunDecl "print_space" [] VoidType
+
+printNl = FunDecl "print_nl" [] VoidType
+
 all =
   [ pushInt,
     pushGlobal,
@@ -77,5 +92,11 @@ all =
     getConstrTag,
     runtimeError,
     printNode,
-    printStack
+    printStack,
+    printStr,
+    printIntNode,
+    printLParen,
+    printRParen,
+    printSpace,
+    printNl
   ]
