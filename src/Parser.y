@@ -87,7 +87,7 @@ Base    : num                           { PNum ann $1 }
         | id                            { PVar ann $1 }
         | Id                            { PVar ann $1 }
         | '(' TopExpr ')'               { $2 }
-        | '(' '\\' Params '->' TopExpr ')' { createAbs $3 $5 }
+--      | '(' '\\' Params '->' TopExpr ')' { createAbs $3 $5 } -- lambdas were fobidden
 
 Case    :: { PExpr }
 Case    : case TopExpr do nl Clauses nl end { PCase ann $2 (reverse $5) }
@@ -100,9 +100,10 @@ Clauses : Clause                        { [$1] }
 Clause  :: { PClause }
 Clause  :  Pattern '->' TopExpr         { PClause $1 $3 }
 
+
 Pattern :: { PPattern }
-Pattern : id                            { PPVar $1 }
-        | Id Params                     { PPConstr $1 $2 }
+Pattern : Id Params                     { PPConstr $1 $2 }
+--      | id                            { PPVar $1 } -- variables as patterns were forbidden
 
 Patterns:: { [PPattern] }
 Patterns: Patterns_                     { reverse $1 }

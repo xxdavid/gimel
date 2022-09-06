@@ -45,14 +45,14 @@ compileExpr (PVar _ x) _ env = case maybeOffset of
 compileExpr (PCase _ m cls) tagMap env = compileExpr m tagMap env ++ [Eval, Jump (map compileClause cls)]
   where
     compileClause :: PClause -> (ConstrTag, [Instr])
-    compileClause (PClause (PPVar _) _) = error "Variables are gonna be forbidden in clauses soon."
+    compileClause (PClause (PPVar _) _) = error "Variables are now forbidden in clauses."
     compileClause (PClause (PPConstr constr vars) body) = (tag, instrs)
       where
         instrs = [Split arity] ++ compileExpr body tagMap env' ++ [Slide arity]
         arity = length vars
         env' = map SVar vars ++ env
         Just tag = Map.lookup constr tagMap
-compileExpr (PAbs {}) _ _ = error "Lambdas will be forbidden soon."
+compileExpr (PAbs {}) _ _ = error "Lambdas are now forbidden."
 
 compileFun :: PFun -> TagMap -> CompiledFun
 compileFun (PFun name expr) tagMap = CompiledFun name instrs
