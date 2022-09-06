@@ -17,12 +17,19 @@ data PProg = PProg {funs :: [PFun], datas :: [PData]}
 
 data PConstr = PConstr Id [Type] deriving (Eq, Show)
 
-data PClause = PClause PPattern PExpr deriving (Eq, Show)
+data PClause = PClause PPattern PExpr deriving (Eq)
+
+instance Show PClause where
+  show (PClause pattern expr) = show pattern ++ " -> " ++ show expr
 
 data PPattern
   = PPVar Id
   | PPConstr Id [Id]
-  deriving (Eq, Show)
+  deriving (Eq)
+
+instance Show PPattern where
+  show (PPVar v) = v
+  show (PPConstr n ps) = n ++ unwords ps
 
 data PExpr
   = PNum Ann Int
@@ -30,7 +37,14 @@ data PExpr
   | PVar Ann Id
   | PAbs Ann Id PExpr
   | PCase Ann PExpr [PClause]
-  deriving (Eq, Show)
+  deriving (Eq)
+
+instance Show PExpr where
+  show (PNum _ n) = show n
+  show (PApp _ l r) = "(" ++ show l ++ " " ++ show r ++ ")"
+  show (PVar _ v) = v
+  show (PAbs _ x e) = "(\\" ++ x ++ " -> " ++ show e ++ ")"
+  show (PCase _ m cls) = "case " ++ show m ++ " do\n" ++ unlines (map (('\t' :) . show) cls) ++ "end"
 
 postwalk :: (PExpr -> PExpr) -> PExpr -> PExpr
 postwalk f = runIdentity . postwalkM ((pure . f) :: (PExpr -> Identity PExpr))
