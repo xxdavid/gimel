@@ -8,6 +8,7 @@
 module Codegen where
 
 import Common
+import Config
 import Control.Monad (void, when)
 import Control.Monad.Fix (MonadFix)
 import qualified Data.Map as Map
@@ -27,11 +28,13 @@ import LLVM.IRBuilder.Monad
 import LLVM.Pretty (ppllvm)
 import LlvmCommon
 import Native
+import Paths_gimel
 import qualified Runtime as R
-import System.Directory (removePathForcibly, withCurrentDirectory)
+import System.Directory (makeAbsolute, removePathForcibly, withCurrentDirectory)
+import System.FilePath (dropExtensions)
 import System.IO (hClose)
-import System.Posix.Temp (mkdtemp, mkstemps)
-import System.Process (callProcess)
+import System.Posix.Temp (mkdtemp, mkstemp, mkstemps)
+import System.Process (callProcess, readProcess)
 
 call' fun args = call fun (map (,[]) args)
 
@@ -241,20 +244,25 @@ codegenProgram prog cFuns resType = buildModule "mainModule" $ do
     retVoid
 
 -- taken from https://blog.josephmorag.com/posts/mcc3/
-compileToBinary :: PProg -> [CompiledFun] -> Common.Type -> FilePath -> IO ()
-compileToBinary prog cFuns resType outfile =
+compileToBinary :: PProg -> [CompiledFun] -> Common.Type -> Config -> IO ()
+compileToBinary prog cFuns resType config = do
+  outfile <- case (out config, run config) of
+    (Just path, _) -> makeAbsolute path
+    (Nothing, False) -> makeAbsolute $ dropExtensions (src config)
+    (Nothing, True) -> fst <$> mkstemp "gimel_program"
+
   bracket (mkdtemp "build") removePathForcibly $ \buildDir ->
     withCurrentDirectory buildDir $ do
       (llvm, llvmHandle) <- mkstemps "output" ".ll"
-      let runtime = "../assets/runtime.c"
+      runtime <- getDataFileName "assets/runtime.c"
 
       let llvmModule = codegenProgram prog cFuns resType
       let moduleText = ppllvm llvmModule
-      Text.putStrLn moduleText
+      when (verbose config) $ Text.putStrLn moduleText
 
       Text.hPutStrLn llvmHandle moduleText
       hClose llvmHandle
 
-      callProcess
-        "clang"
-        ["-Wno-override-module", "-lm", llvm, runtime, "-o", "../" <> outfile]
+      callProcess "clang" ["-Wno-override-module", "-lm", llvm, runtime, "-o", outfile]
+
+      when (run config) $ readProcess outfile [] [] >>= print

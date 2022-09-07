@@ -1,12 +1,14 @@
 name: gimel
-version: 0.1.0.0
+version: 1.0
 github: "githubuser/gimel"
 license: BSD3
 
 extra-source-files:
   - README.md
 
-data-files: "assets/stdlib.gm"
+data-files:
+  - "assets/stdlib.gm"
+  - "assets/runtime.c"
 
 dependencies:
   - base >= 4.7 && < 5
@@ -20,13 +22,15 @@ dependencies:
   - text
   - unix
   - directory
+  - filepath
   - process
+  - cmdargs
 
 library:
   source-dirs: src
 
 executables:
-  gimel-exe:
+  gimel:
     main: Main.hs
     source-dirs: app
     ghc-options:

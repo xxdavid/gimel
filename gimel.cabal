@@ -5,7 +5,7 @@ cabal-version: 1.12
 -- see: https://github.com/sol/hpack
 
 name:           gimel
-version:        0.1.0.0
+version:        1.0
 homepage:       https://github.com/githubuser/gimel#readme
 bug-reports:    https://github.com/githubuser/gimel/issues
 license:        BSD3
@@ -15,6 +15,7 @@ extra-source-files:
     README.md
 data-files:
     assets/stdlib.gm
+    assets/runtime.c
 
 source-repository head
   type: git
@@ -24,6 +25,7 @@ library
   exposed-modules:
       Codegen
       Common
+      Config
       GMachine
       Lexer
       LlvmCommon
@@ -39,9 +41,11 @@ library
   build-depends:
       array
     , base >=4.7 && <5
+    , cmdargs
     , containers
     , data-partition
     , directory
+    , filepath
     , lens
     , llvm-hs-pretty
     , llvm-hs-pure
@@ -51,7 +55,7 @@ library
     , unix
   default-language: Haskell2010
 
-executable gimel-exe
+executable gimel
   main-is: Main.hs
   hs-source-dirs:
       app
@@ -59,9 +63,11 @@ executable gimel-exe
   build-depends:
       array
     , base >=4.7 && <5
+    , cmdargs
     , containers
     , data-partition
     , directory
+    , filepath
     , gimel
     , lens
     , llvm-hs-pretty
@@ -83,9 +89,11 @@ test-suite gimel-test
   build-depends:
       array
     , base >=4.7 && <5
+    , cmdargs
     , containers
     , data-partition
     , directory
+    , filepath
     , gimel
     , lens
     , llvm-hs-pretty

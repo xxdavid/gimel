@@ -31,7 +31,7 @@ data TypeState = TypeState
   deriving (Show)
 
 data Error
-  = MatchError (Type, Type)
+  = MatchError Type Type
   | UndefinedVariableError Id
   | MultipleDefinitions Id
   | UndefinedConstructorError Id
@@ -139,13 +139,13 @@ evalInNewScope vars f = do
 unify :: Type -> Type -> TyperMonad ()
 unify (TBase a) (TBase b)
   | a == b = return ()
-  | otherwise = throwError $ MatchError (TBase a, TBase b)
+  | otherwise = throwError $ MatchError (TBase a) (TBase b)
 unify (TFun a b) (TFun c d) = do
   unify a c
   unify b d
 unify (TData a) (TData b)
   | a == b = return ()
-  | otherwise = throwError $ MatchError (TData a, TData b)
+  | otherwise = throwError $ MatchError (TData a) (TData b)
 unify a@(TVar _) b = do
   p <- use typeSets
   let a' = P.rep p a
@@ -153,7 +153,7 @@ unify a@(TVar _) b = do
     then typeSets .= P.joinElems a b p
     else unify a' b
 unify a b@(TVar _) = unify b a
-unify a b = throwError $ MatchError (a, b)
+unify a b = throwError $ MatchError a b
 
 runTypeExpr :: PExpr -> (Either Error PExpr, TypeState)
 runTypeExpr expr = runState (runExceptT (loadNativeFuns >> typeExpr expr)) initState
