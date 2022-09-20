@@ -82,6 +82,8 @@ stack build
 
 After that (actually, it does not matter when) you can run `stack install` and the compiler binary will be copied to some folder on your computer.
 
+You also have to have `clang` (v13.0.0 in my case) in your `PATH` for the compilation to work.
+
 ### Running
 Use the `gimel` binary to compile Gimel source files. You can pass `-o` to specify the output file.
 
@@ -107,10 +109,15 @@ $ ./fact_list
 (Cons 120 (Cons 3628800 Nil))
 ```
 
+## Known issues
+- the typechecker allows partial application (like `facts = map fact`) but the compiler (which is a subsequent phase) does not, and it ends up as a runtime error (like segfault) when you run your program
+- if you define a general function like `id x = x` but don't use it, the typechecker will complain because it cannot infer a monomorphic type; you have to use it (e.g. by defining `five = id 5`) to make the typechecker happy
+- the `--run` parameter of `gimel` does not really work (I don't know why)
+
 ## Why the name?
 Gimel is a Hebrew letter (ג) that resembles lambda and so it looked like a perfect name for a functional language to me.
 
 ## Acknowledgement
-I was inspired by the beatiful series [Compiling a Functional Language Using C++](https://danilafe.com/blog/00_compiler_intro/). It helped me to understand the G-Machine and I looked into it from time to time when I got lost with the implementation.
+I was inspired by the beautiful series [Compiling a Functional Language Using C++](https://danilafe.com/blog/00_compiler_intro/). It helped me to understand the G-Machine, the intros to each chapter guided me through compiler design, and I looked into it from time to time when I got lost with the implementation.
 
 I used `llvm-hs-pure` for generating the LLVM IR and its documentation is very sparse (as for almost every Haskell library) so [this awesome talk](https://www.youtube.com/watch?v=_Qb0mL72l2o) and [this excellent blog post](https://blog.josephmorag.com/posts/mcc3/) were a great help to me.
