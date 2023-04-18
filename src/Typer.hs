@@ -32,6 +32,7 @@ data TypeState = TypeState
 
 data Error
   = MatchError Type Type
+  | InfiniteType Type Type
   | UndefinedVariableError Id
   | MultipleDefinitions Id
   | UndefinedConstructorError Id
@@ -148,10 +149,16 @@ unify (TData a) (TData b)
   | otherwise = throwError $ MatchError (TData a) (TData b)
 unify a@(TVar _) b = do
   p <- use typeSets
+  when (b `contains` a) (throwError $ InfiniteType a b)
   let a' = P.rep p a
   if a == a'
     then typeSets .= P.joinElems a b p
     else unify a' b
+  where
+      (TFun x y) `contains` z
+        | x == z || y == z = True
+        | otherwise = x `contains` z || y `contains` z
+      _ `contains` _ = False
 unify a b@(TVar _) = unify b a
 unify a b = throwError $ MatchError a b
 

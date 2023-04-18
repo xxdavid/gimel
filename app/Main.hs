@@ -55,6 +55,7 @@ main = do
 
 errorMsg :: Error -> String
 errorMsg (MatchError a b) = unwords ["Cannot match type", show a, "with type", show b] ++ "."
+errorMsg (InfiniteType a b) = unwords ["Cannot construct the infinite type", show a, "~", show b] ++ "."
 errorMsg (UndefinedVariableError name) = unwords ["Undefined variable", name] ++ "."
 errorMsg (MultipleDefinitions name) = unwords ["Multiple definitions of function", name] ++ "."
 errorMsg (UndefinedConstructorError name) = unwords ["Matching against an undefined constructor", name] ++ "."
