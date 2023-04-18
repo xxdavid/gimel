@@ -71,7 +71,7 @@ errorMsg (BadConstructorPatternArity name expected actual) =
     ++ "."
 errorMsg (UnresolvedVariable _ expr) =
   unwords
-    ["Unresolved type for expression", show expr, "(it is probably to general)"]
+    ["Unresolved type for expression", show expr, "(it is probably too general)"]
     ++ "."
 errorMsg MainMissing = "The main function is missing."
 errorMsg MainNotNullary = "The main function takes arguments but it should take none."
