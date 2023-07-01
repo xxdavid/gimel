@@ -155,10 +155,10 @@ unify a@(TVar _) b = do
     then typeSets .= P.joinElems a b p
     else unify a' b
   where
-      (TFun x y) `contains` z
-        | x == z || y == z = True
-        | otherwise = x `contains` z || y `contains` z
-      _ `contains` _ = False
+    (TFun x y) `contains` z
+      | x == z || y == z = True
+      | otherwise = x `contains` z || y `contains` z
+    _ `contains` _ = False
 unify a b@(TVar _) = unify b a
 unify a b = throwError $ MatchError a b
 
