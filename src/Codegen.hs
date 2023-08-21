@@ -15,7 +15,6 @@ import qualified Data.Map as Map
 import Data.String (fromString)
 import qualified Data.Text.Lazy.IO as Text
 import Debug.Trace (trace)
-import GHC.IO (bracket)
 import GMachine (CompiledFun (CompiledFun), Instr (..))
 import LLVM.AST hiding (function)
 import LLVM.AST.Constant (Constant (GlobalReference))
@@ -30,11 +29,9 @@ import LlvmCommon
 import Native
 import Paths_gimel
 import qualified Runtime as R
-import System.Directory (makeAbsolute, removePathForcibly, withCurrentDirectory)
-import System.FilePath (dropExtensions)
 import System.IO (hClose)
-import System.Posix.Temp (mkdtemp, mkstemp, mkstemps)
-import System.Process (callProcess, readProcess)
+import System.Posix.Temp (mkstemps)
+import System.Process (callProcess)
 
 call' fun args = call fun (map (,[]) args)
 
@@ -243,26 +240,17 @@ codegenProgram prog cFuns resType = buildModule "mainModule" $ do
 
     ret (int32 0)
 
--- taken from https://blog.josephmorag.com/posts/mcc3/
-compileToBinary :: PProg -> [CompiledFun] -> Common.Type -> Config -> IO ()
-compileToBinary prog cFuns resType config = do
-  outfile <- case (out config, run config) of
-    (Just path, _) -> makeAbsolute path
-    (Nothing, False) -> makeAbsolute $ dropExtensions (src config)
-    (Nothing, True) -> fst <$> mkstemp "gimel_program"
+-- inspired by https://blog.josephmorag.com/posts/mcc3/
+compileToBinary :: PProg -> [CompiledFun] -> Common.Type -> Config -> FilePath -> IO ()
+compileToBinary prog cFuns resType config outFile = do
+  (llvm, llvmHandle) <- mkstemps "output" ".ll"
+  runtime <- getDataFileName "assets/runtime.c"
 
-  bracket (mkdtemp "build") removePathForcibly $ \buildDir ->
-    withCurrentDirectory buildDir $ do
-      (llvm, llvmHandle) <- mkstemps "output" ".ll"
-      runtime <- getDataFileName "assets/runtime.c"
+  let llvmModule = codegenProgram prog cFuns resType
+  let moduleText = ppllvm llvmModule
+  when (verbose config) $ Text.putStrLn moduleText
 
-      let llvmModule = codegenProgram prog cFuns resType
-      let moduleText = ppllvm llvmModule
-      when (verbose config) $ Text.putStrLn moduleText
+  Text.hPutStrLn llvmHandle moduleText
+  hClose llvmHandle
 
-      Text.hPutStrLn llvmHandle moduleText
-      hClose llvmHandle
-
-      callProcess "clang" ["-Wno-override-module", "-lm", llvm, runtime, "-o", outfile]
-
-      when (run config) $ readProcess outfile [] [] >>= print
+  callProcess "clang" ["-Wno-override-module", "-lm", llvm, runtime, "-o", outFile]

@@ -112,7 +112,6 @@ $ ./fact_list
 ## Known issues
 - the typechecker allows partial application (like `facts = map fact`) but the compiler (which is a subsequent phase) does not, and it ends up as a runtime error (like segfault) when you run your program
 - if you define a general function like `id x = x` but don't use it, the typechecker will complain because it cannot infer a monomorphic type; you have to use it (e.g. by defining `five = id 5`) to make the typechecker happy
-- the `--run` parameter of `gimel` does not really work (I don't know why)
 
 ## Why the name?
 Gimel is a Hebrew letter (ג) that resembles lambda and so it looked like a perfect name for a functional language to me.

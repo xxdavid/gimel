@@ -8,13 +8,18 @@ import Config
 import Control.Lens.Getter ((^.))
 import Control.Monad (when)
 import Data.Char (isSpace)
+import GHC.IO (bracket)
 import GMachine
 import Lexer
 import Parser
 import Stdlib
 import System.Console.CmdArgs
+import System.Directory (makeAbsolute, removePathForcibly, withCurrentDirectory)
 import System.Exit (ExitCode (ExitFailure), exitWith)
+import System.FilePath (dropExtensions)
 import System.IO (hPutStrLn, stderr)
+import System.Posix.Temp (mkdtemp, mkstemp, mkstemps)
+import System.Process (readProcess)
 import Typer
 
 config =
@@ -46,12 +51,21 @@ main = do
       when (verbose config) $ mapM_ (printDef $ state ^. typeSets) typedFuns
       let compiledFuns = compileProg prog
       when (verbose config) $ print compiledFuns
-      compileToBinary prog compiledFuns mainType config
+      compileAndPossiblyRun prog compiledFuns mainType config
     (Left error, _) -> do
       hPutStrLn stderr $ errorMsg error
       exitWith (ExitFailure 1)
   where
     printDef sets (PFun fn body) = putStrLn $ fn ++ " = " ++ printTypedExpr body sets
+    compileAndPossiblyRun prog compiledFuns mainType config = do
+      outFile <- case (out config, run config) of
+        (Just path, _) -> makeAbsolute path
+        (Nothing, False) -> makeAbsolute $ dropExtensions (src config)
+        (Nothing, True) -> pure "./gimel_program" -- relatively to the build directory
+      bracket (mkdtemp "build") removePathForcibly $ \buildDir ->
+        withCurrentDirectory buildDir $ do
+          compileToBinary prog compiledFuns mainType config outFile
+          when (run config) $ readProcess outFile [] [] >>= putStr
 
 errorMsg :: Error -> String
 errorMsg (MatchError a b) = unwords ["Cannot match type", show a, "with type", show b] ++ "."
