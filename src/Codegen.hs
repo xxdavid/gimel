@@ -231,7 +231,7 @@ codegenProgram prog cFuns resType = buildModule "mainModule" $ do
   mapM_ codegenNativeFun nativeFuns
   mapM_ codegenDataPrinter (datas prog)
 
-  function "main" [] VoidType $ \[] -> do
+  function "main" [] i32 $ \[] -> do
     entry <- block `named` "entry"
 
     s <- callRt R.emptyStack []
@@ -241,7 +241,7 @@ codegenProgram prog cFuns resType = buildModule "mainModule" $ do
     codegenPrintResult s resType
     callRt R.printNl []
 
-    retVoid
+    ret (int32 0)
 
 -- taken from https://blog.josephmorag.com/posts/mcc3/
 compileToBinary :: PProg -> [CompiledFun] -> Common.Type -> Config -> IO ()
