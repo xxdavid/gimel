@@ -67,7 +67,7 @@ firstTenNats = take 10 nats
 ```
 
 ### Compilation to machine code
-Programs in Gimel are first compiled to instructions for an abstract [G-Machine](https://link.springer.com/chapter/10.1007/3-540-15975-4_50) that knows how to evaluate expressions lazily in an efficient way (not really but more than the naïve lazy evaluation) using [graph reduction](https://en.wikipedia.org/wiki/Graph_reduction). It's similar to what one compilation phase of GHC compiles Haskell to (it also uses G-Machine but a more advanced version). The G-Machine instructions are then compiled to LLVM IR instructions and these are then handed to the LLVM compiler that compiles it down to optimized machine code tailored for your architecture.
+Programs in Gimel are first compiled to instructions for an abstract [G-Machine](https://dl.acm.org/doi/10.1145/502874.502880) that knows how to evaluate expressions lazily in an efficient way (not really but more than the naïve lazy evaluation) using [graph reduction](https://en.wikipedia.org/wiki/Graph_reduction). It's similar to what one compilation phase of GHC compiles Haskell to (it also uses G-Machine but a more advanced version). The G-Machine instructions are then compiled to LLVM IR instructions and these are then handed to the LLVM compiler that compiles it down to optimized machine code tailored for your architecture.
 
 As we've seen, each program is a set of function and ADT definitions but that doesn't form a complete program, one thing is missing for the compiler to know what to do. It is the entry point, the root expression that should be evaluated. For this purpose, each program has to include a nullary function called `main`. This function is always evaluated when the compiled program is run and the evaluated expression is then printed on the standard output.
 
@@ -110,7 +110,6 @@ $ ./fact_list
 ```
 
 ## Known issues
-- the typechecker allows partial application (like `facts = map fact`) but the compiler (which is a subsequent phase) does not, and it ends up as a runtime error (like segfault) when you run your program
 - if you define a general function like `id x = x` but don't use it, the typechecker will complain because it cannot infer a monomorphic type; you have to use it (e.g. by defining `five = id 5`) to make the typechecker happy
 
 ## Why the name?
